@@ -1,15 +1,28 @@
 import tensorflow as tf
-#from tensorflow.keras.applications import VGG19
+from tensorflow.keras.applications import VGG19
 #from tensorflow.keras.preprocessing.image import load_img, img_to_array
 #from tensorflow.keras.applications.vgg19 import preprocess_input
 import numpy as np
 
 
-
 class NSTModel:
 
-    def __init__(self, base_model: tf.keras.models.Model,
-                 content_layers: list, style_layers: list):
+    def __init__(self, content_layers: list = None, style_layers: list = None,
+                 base_model: tf.keras.models.Model = None):
+
+        if base_model is None:
+            base_model = VGG19(include_top=False)
+
+        if content_layers is None:
+            content_layers = ['block4_conv2']
+
+        if style_layers is None:
+            style_layers = [
+                'block2_conv1',
+                'block3_conv1',
+                'block4_conv1',
+                'block5_conv1'
+            ]
 
         base_model.trainable = False
         self.input_shape = (224, 224, 3)
@@ -114,7 +127,8 @@ def calc_style_loss(style_style_outputs: list,
 
 
 def calc_total_loss(content_content_outputs: list, style_style_outputs: list,
-               result_content_outputs: list, result_style_outputs: list) -> tf.Tensor:
+                    result_content_outputs: list, result_style_outputs: list,
+                    weights: dict) -> tf.Tensor:
     """
     Caculates total loss as weighted sum of content loss and style loss
 
@@ -127,6 +141,7 @@ def calc_total_loss(content_content_outputs: list, style_style_outputs: list,
             of result image processed through model
         result_style_outputs: List of tf.Tensors: list of style layer ouptuts
             of result image processed through model
+        weights: dict with keys 'content_weight', 'style_weight'
 
     Returns:
         loss: style_loss
@@ -135,8 +150,8 @@ def calc_total_loss(content_content_outputs: list, style_style_outputs: list,
     content_loss = calc_content_loss(content_content_outputs, result_content_outputs)
     style_loss = calc_style_loss(style_style_outputs, result_style_outputs)
 
-    content_weight = 1
-    style_weight = 100
+    content_weight = weights['content_weight']
+    style_weight = weights['style_weight']
 
     total_loss = style_loss * style_weight + content_loss * content_weight
 
@@ -145,7 +160,8 @@ def calc_total_loss(content_content_outputs: list, style_style_outputs: list,
 
 @tf.function()
 def calculate_gradients(content: tf.Variable, style: tf.Variable, result: tf.Variable,
-                        loss_function: tf.keras.losses.Loss, model: tf.keras.Model):
+                        loss_function: tf.keras.losses.Loss, model: tf.keras.Model,
+                        weights: dict) -> list:
     """
     Calculates loss and its gradients with respect to target image
 
@@ -155,6 +171,7 @@ def calculate_gradients(content: tf.Variable, style: tf.Variable, result: tf.Var
         result: result image before processing through model
         loss_function: loss function to appply to content, style, result
         model: keras model for NST
+        weights: dict with keys 'content_weight', 'style_weight'
 
     Returns:
         loss_value: total loss value (content and style) between three images
@@ -171,7 +188,8 @@ def calculate_gradients(content: tf.Variable, style: tf.Variable, result: tf.Var
             'content_content_outputs': content_content_outputs,
             'style_style_outputs': style_style_outputs,
             'result_content_outputs': result_content_ouputs,
-            'result_style_outputs': result_style_outputs
+            'result_style_outputs': result_style_outputs,
+            'weights': weights
         }
         loss_value = loss_function(**loss_function_parameters)
 
@@ -193,7 +211,7 @@ def normalize_image(image):
 
 
 def generate_nst(content: tf.Variable, style: tf.Variable, model: NSTModel,
-                 epochs: int, lr: float, start_from_content=True) -> list:
+                 epochs: int, lr: float, weights: dict, start_from_content=True) -> list:
     """
     Performs optimization to return generated image
 
@@ -203,6 +221,7 @@ def generate_nst(content: tf.Variable, style: tf.Variable, model: NSTModel,
         model: keras model for NST
         epochs: number of fit iterations
         lr: learning rate (approx. 1)
+        weights: dict with keys 'content_weight', 'style_weight'
         start_from_content: if True, initial image will be set to content
 
     Returns:
@@ -233,7 +252,8 @@ def generate_nst(content: tf.Variable, style: tf.Variable, model: NSTModel,
             'style': style,
             'result': result,
             'model': model,
-            'loss_function': calc_total_loss
+            'loss_function': calc_total_loss,
+            'weights': weights
         }
         loss, grads = calculate_gradients(**gradient_parameters)
 
