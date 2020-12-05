@@ -108,14 +108,6 @@ class NSTGui:
             plt.show()
 
     def _click_generate(self, b: widgets.Button):
-        #input_shape = (224, 224, 3)
-        #content_pil = load_img(self._content_image_path, target_size=input_shape[:-1])
-        #content_np = img_to_array(content_pil)[np.newaxis, ...]
-        #style_pil = load_img(self._style_image_path, target_size=input_shape[:-1])
-        #style_np = img_to_array(style_pil)[np.newaxis, ...]
-
-        #content = tf.Variable(normalize_image(content_np), dtype=tf.float32)
-        #style = tf.Variable(normalize_image(style_np), dtype=tf.float32)
 
         if self._nst_model is None:
             self._nst_model = NSTModel()
@@ -141,6 +133,10 @@ class NSTGui:
             }
             print('Starting generation with following parameters:')
             [print(f'{k}:', v) for k, v in print_parameters.items()]
+
+            print(self._nst_model.content_layers)
+            print(self._nst_model.style_layers)
+            print(self._nst_model.nst_model.outputs)
 
             self._trained_image, self._losses = generate_nst(**generator_parameters)
 

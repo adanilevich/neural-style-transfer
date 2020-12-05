@@ -110,10 +110,10 @@ def calc_style_loss(style_style_outputs: list,
 
     def calc_style(style_layer_output: tf.Tensor) -> tf.Tensor:
         shape = tf.shape(style_layer_output)
-        style = tf.einsum('ijkl,ijkm->ilm', style_layer_output, style_layer_output)
-        style = style / tf.cast(shape[1] * shape[2], tf.float32)
+        style = tf.linalg.einsum('ijkl,ijkm->ilm', style_layer_output, style_layer_output)
+        num_locations = tf.cast(shape[1] * shape[2], tf.float32)
 
-        return style
+        return style/(num_locations)
 
     style_styles = [calc_style(slo) for slo in style_style_outputs]
     result_styles = [calc_style(slo) for slo in result_style_outputs]
