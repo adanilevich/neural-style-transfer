@@ -1,7 +1,8 @@
 import tensorflow as tf
 from tensorflow.keras.applications import VGG19
-# from tensorflow.keras.preprocessing.image import load_img, img_to_array
+from tensorflow.keras.preprocessing.image import img_to_array
 import numpy as np
+import PIL.Image
 
 
 class NSTModel:
@@ -182,9 +183,13 @@ def generate_nst(content: np.array, style: np.array, model: NSTModel,
         optimizer.apply_gradients([(grads, result)])
         result.assign(tf.clip_by_value(result, clip_value_min=0.0, clip_value_max=1.0))
 
-    trained_image = result.numpy().reshape(model.input_shape)
-    trained_image = tf.image.resize(trained_image, original_shape[0:-1]).numpy()
-    trained_image = normalize_image(trained_image)
+    # trained_image = result.numpy().reshape(model.input_shape)
+    # trained_image = tf.image.resize(trained_image, original_shape[0:-1]).numpy()
+    # trained_image = normalize_image(trained_image)
+
+    trained_image = tf.image.resize(result, original_shape[0:-1]).numpy()
+    trained_image = tensor_to_image(trained_image)
+    trained_image = img_to_array(trained_image)
 
     return trained_image, losses
 
@@ -199,3 +204,11 @@ def preprocess_image(image: np.array, target_size: tuple) -> tf.Variable:
 
     return image
 
+
+def tensor_to_image(tensor):
+  tensor = tensor*255
+  tensor = np.array(tensor, dtype=np.uint8)
+  if np.ndim(tensor)>3:
+    assert tensor.shape[0] == 1
+    tensor = tensor[0]
+  return PIL.Image.fromarray(tensor)
