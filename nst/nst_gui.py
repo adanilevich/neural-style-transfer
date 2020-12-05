@@ -101,7 +101,7 @@ class NSTGui:
         self._image_output.clear_output()
 
         with self._image_output:
-            fig, axes = plt.subplots(1, 3, figsize=(15, 15))
+            fig, axes = plt.subplots(1, 3, figsize=(30, 30))
             axes[0].imshow(self._content_raw)
             axes[0].set_title('Content Image\n', fontsize=15)
             axes[0].axis('off')  # disable axis lines, ticks, labels
@@ -149,7 +149,7 @@ class NSTGui:
 
         with self._image_output:
             self._image_output.clear_output()
-            fig, axes = plt.subplots(1, 3, figsize=(15, 15))
+            fig, axes = plt.subplots(1, 3, figsize=(30, 30))
             axes[0].imshow(self._content_raw)
             axes[0].set_title('Content Image\n', fontsize=15)
             axes[0].axis('off')  # disable axis lines, ticks, labels
