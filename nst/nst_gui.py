@@ -15,7 +15,9 @@ class NSTGui:
 
     def __init__(self):
         # DEFAULT VALUES
-        #self._content_image_path = Path('images/content_carina_2.jpg')
+        self._content_raw = None
+        self._result_raw = None
+        self._style_raw = None
         self._content_image_path = Path('images/content_dog.jpg')
         self._style_image_path = Path('images/style_kandinsky_7.jpg')
         self._nst_model = None
@@ -23,11 +25,11 @@ class NSTGui:
         # IMAGE SELECTION
         self._selected_content_image = widgets.Label(value=self._content_image_path.name)
         self._selected_style_image = widgets.Label(value=self._style_image_path.name)
-        self._select_content_image_button = \
-            widgets.Button(description='Content Image')
+
+        self._select_content_image_button = widgets.Button(description='Content Image')
         self._select_content_image_button.on_click(self._click_select_images_button)
-        self._select_style_image_button = \
-            widgets.Button(description='Style Image')
+
+        self._select_style_image_button = widgets.Button(description='Style Image')
         self._select_style_image_button.on_click(self._click_select_images_button)
 
         # TRAINING PARAMETERS
@@ -50,7 +52,7 @@ class NSTGui:
         )
 
         self._content_weight_selection = widgets.BoundedFloatText(
-            value=10000,
+            value=1000,
             min=0.0001,
             max=10000,
             description='Content Weight:',
@@ -58,7 +60,7 @@ class NSTGui:
         )
 
         self._style_weight_selection = widgets.BoundedFloatText(
-            value=0.01,
+            value=1,
             min=0.0001,
             max=10000,
             description='Style Weight:',
@@ -78,34 +80,37 @@ class NSTGui:
         )
 
         # CREATE OUTPUTS
-        self._image_selection_output = widgets.Output()
-        self._nst_result_output = widgets.Output()
+        self._image_output = widgets.Output()
         self._text_output = widgets.Output()
 
         # COMPOSE GUI
         self._gui = self._compose_gui()
 
     def _click_select_images_button(self, b: widgets.Button):
-        self._content_image_path = Path(__file__).parent.parent/\
-                                   r'images/content_dog.jpg'
-        self._style_image_path = Path(__file__).parent.parent/\
-                                 'images/style_kandinsky_7.jpg'
+        parent_path = Path(__file__).parent.parent
+        self._content_image_path = parent_path/r'images/content_dog.jpg'
+        self._style_image_path = parent_path/r'images/style_kandinsky_7.jpg'
 
         self._selected_content_image.value = self._content_image_path.name
         self._selected_style_image.value = self._style_image_path.name
 
         self._content_raw = mpimg.imread(self._content_image_path)
         self._style_raw = mpimg.imread(self._style_image_path)
+        self._result_raw = mpimg.imread(self._content_image_path)
 
-        self._image_selection_output.clear_output()
-        with self._image_selection_output:
-            fig, axes = plt.subplots(1, 2, figsize=(15, 10))
+        self._image_output.clear_output()
+
+        with self._image_output:
+            fig, axes = plt.subplots(1, 3, figsize=(15, 15))
             axes[0].imshow(self._content_raw)
             axes[0].set_title('Content Image\n', fontsize=15)
             axes[0].axis('off')  # disable axis lines, ticks, labels
             axes[1].imshow(self._style_raw)
             axes[1].set_title('Style Image \n', fontsize=15)
             axes[1].axis('off')  # disable axis lines, ticks, labels
+            axes[2].imshow(self._result_raw)
+            axes[2].set_title('Result Image \n', fontsize=15)
+            axes[2].axis('off')  # disable axis lines, ticks, labels
             plt.show()
 
     def _click_generate(self, b: widgets.Button):
@@ -137,17 +142,23 @@ class NSTGui:
             print('Using content layers:', self._nst_model.content_layers)
             print('Using style layers:', self._nst_model.style_layers)
 
-            self._trained_image, self._losses = generate_nst(**generator_parameters)
+            self._result_raw, self._losses = generate_nst(**generator_parameters)
 
             plt.plot(self._losses)
             plt.show()
 
-        with self._nst_result_output:
-            self._nst_result_output.clear_output()
-            fig, ax = plt.subplots(1, 1, figsize=(15, 5))
-            ax.imshow(self._trained_image)
-            ax.set_title('Result Image\n', fontsize=15)
-            ax.axis('off')  # disable axis lines, ticks, labels
+        with self._image_output:
+            self._image_output.clear_output()
+            fig, axes = plt.subplots(1, 3, figsize=(15, 15))
+            axes[0].imshow(self._content_raw)
+            axes[0].set_title('Content Image\n', fontsize=15)
+            axes[0].axis('off')  # disable axis lines, ticks, labels
+            axes[1].imshow(self._style_raw)
+            axes[1].set_title('Style Image \n', fontsize=15)
+            axes[1].axis('off')  # disable axis lines, ticks, labels
+            axes[2].imshow(self._result_raw)
+            axes[2].set_title('Result Image \n', fontsize=15)
+            axes[2].axis('off')  # disable axis lines, ticks, labels
             plt.show()
 
     def _compose_gui(self) -> widgets.Box:
@@ -198,18 +209,14 @@ class NSTGui:
         ])
 
         # OUTPUT BOXES
-        self._image_selection_output.layout = layout_boxes
-        self._image_selection_output.layout.width = '98.9%'
+        self._image_output.layout = layout_boxes
+        self._image_output.layout.width = '98.9%'
         self._text_output.layout = layout_boxes
         self._text_output.width = '100%'
-        self._nst_result_output.layout = layout_boxes
-        self._nst_result_output.width = '100%'
 
         gui = widgets.VBox([
             inputs,
-            # generate_button_box,
-            self._image_selection_output,
-            self._nst_result_output,
+            self._image_output,
             self._text_output
         ])
 
