@@ -83,9 +83,13 @@ def calc_total_loss(content_contents: list, style_styles: list,
         loss: style_loss
     """
 
+    content_weight = weights['content_weight']
+    style_weight = weights['style_weight']
+
     content_losses = [tf.reduce_mean((cont - res)**2)
                       for cont, res in zip(content_contents, result_contents)]
-    content_loss = tf.add_n(content_losses) / len(content_losses)
+    content_loss = tf.add_n(content_losses)
+    content_loss *= content_weight/len(content_losses)
 
     def calc_style(style_layer_output: tf.Tensor) -> tf.Tensor:
         shape = tf.shape(style_layer_output)
@@ -99,12 +103,10 @@ def calc_total_loss(content_contents: list, style_styles: list,
 
     style_losses = [tf.reduce_mean((st - res)**2)
                     for st, res in zip(style_style_values, result_style_values)]
-    style_loss = tf.add_n(style_losses) / len(style_losses)
+    style_loss = tf.add_n(style_losses)
+    style_loss *= style_weight/ len(style_losses)
 
-    content_weight = weights['content_weight']
-    style_weight = weights['style_weight']
-
-    total_loss = style_loss * style_weight + content_loss * content_weight
+    total_loss = style_loss + content_loss
 
     return total_loss
 
@@ -145,7 +147,6 @@ def generate_nst(content: np.array, style: np.array, model: NSTModel,
     model_input_size = model.input_shape[0:-1]
 
     result = preprocess_image(content, model_input_size)
-    result_keep = preprocess_image(content, model_input_size)
     content = preprocess_image(content, model_input_size)
     style = preprocess_image(style, model_input_size)
 
@@ -177,14 +178,11 @@ def generate_nst(content: np.array, style: np.array, model: NSTModel,
 
         grads = tape.gradient(loss, result)
 
-        print(type(loss))
-        print(loss)
-
         losses.append(loss)
         optimizer.apply_gradients([(grads, result)])
         result.assign(tf.clip_by_value(result, clip_value_min=0.0, clip_value_max=1.0))
 
-    trained_image = result_keep.numpy().reshape(model.input_shape)
+    trained_image = result.numpy().reshape(model.input_shape)
     trained_image = tf.image.resize(trained_image, original_shape[0:-1]).numpy()
     trained_image = normalize_image(trained_image)
 

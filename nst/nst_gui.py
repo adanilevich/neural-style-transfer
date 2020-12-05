@@ -15,7 +15,8 @@ class NSTGui:
 
     def __init__(self):
         # DEFAULT VALUES
-        self._content_image_path = Path('images/content_carina_2.jpg')
+        #self._content_image_path = Path('images/content_carina_2.jpg')
+        self._content_image_path = Path('images/content_dog.jpg')
         self._style_image_path = Path('images/style_kandinsky_7.jpg')
         self._nst_model = None
 
@@ -86,7 +87,7 @@ class NSTGui:
 
     def _click_select_images_button(self, b: widgets.Button):
         self._content_image_path = Path(__file__).parent.parent/\
-                                   r'images/content_carina_2.jpg'
+                                   r'images/content_dog.jpg'
         self._style_image_path = Path(__file__).parent.parent/\
                                  'images/style_kandinsky_7.jpg'
 
