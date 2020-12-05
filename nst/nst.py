@@ -14,10 +14,11 @@ class NSTModel:
             base_model = VGG19(include_top=False)
 
         if content_layers is None:
-            content_layers = ['block4_conv2']
+            content_layers = ['block5_conv2']
 
         if style_layers is None:
             style_layers = [
+                'block1_conv1',
                 'block2_conv1',
                 'block3_conv1',
                 'block4_conv1',
