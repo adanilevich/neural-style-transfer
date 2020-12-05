@@ -93,7 +93,7 @@ def calc_total_loss(content_contents: list, style_styles: list,
         loss: style_loss
     """
 
-    content_losses = [tf.reduce_mean(cont - res)**2
+    content_losses = [tf.reduce_mean((cont - res)**2)
                       for cont, res in zip(content_contents, result_contents)]
     content_loss = tf.add_n(content_losses) / len(content_losses)
 
@@ -107,7 +107,7 @@ def calc_total_loss(content_contents: list, style_styles: list,
     style_style_values = [calc_style(slo) for slo in style_styles]
     result_style_values = [calc_style(slo) for slo in result_styles]
 
-    style_losses = [tf.reduce_mean(st - res)**2
+    style_losses = [tf.reduce_mean((st - res)**2)
                     for st, res in zip(style_style_values, result_style_values)]
     style_loss = tf.add_n(style_losses) / len(style_losses)
 
