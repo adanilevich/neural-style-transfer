@@ -72,41 +72,30 @@ def init_result(result_shape):
     return result_image
 
 
-def calc_content_loss(content_contents: list, result_contents: list) -> tf.Tensor:
+def calc_total_loss(content_contents: list, style_styles: list,
+                    result_contents: list, result_styles: list,
+                    weights: dict) -> tf.Tensor:
     """
-    Calculates content loss between processed target image and processed content image
-    as meas squared error.
-
-    Args: content_contents: List of tf.Tensors. List of content layers outputs for
-    content image processed through nst model. result_contents: List of tf.Tensors.
-    List of content layers outputs for result target image processed through nst model.
-
-    Returns:
-        loss: content loss
-    """
-
-    mse = tf.keras.losses.MeanSquaredError()
-    losses = [mse(cont, res) for cont, res in zip(content_contents, result_contents)]
-    loss = tf.add_n(losses) / len(losses)
-
-    return loss
-
-
-def calc_style_loss(style_style_outputs: list,
-                    result_style_outputs: list) -> tf.Tensor:
-    """
-    Calculates style loss between processed target image and processed style image
-    as meas squared error.
+    Caculates total loss as weighted sum of content loss and style loss
 
     Args:
-        style_style_outputs: List of tf.Tensors. List of style layer
-            outputs of style image processed through nst model
-        result_style_outputs: List of tf.Tensors. List of style layer outputs
-            of result image processed through nst model
+        content_contents: List of tf.Tensors: list of content layer ouptuts
+            of content image processed through model
+        style_styles: List of tf.Tensors: list of style layer ouptuts
+            of style image processed through model
+        result_contents: List of tf.Tensors: list of content layer ouptuts
+            of result image processed through model
+        result_styles: List of tf.Tensors: list of style layer ouptuts
+            of result image processed through model
+        weights: dict with keys 'content_weight', 'style_weight'
 
     Returns:
-        loss: style loss
+        loss: style_loss
     """
+
+    content_losses = [tf.reduce_mean(cont - res)**2
+                      for cont, res in zip(content_contents, result_contents)]
+    content_loss = tf.add_n(content_losses) / len(content_losses)
 
     def calc_style(style_layer_output: tf.Tensor) -> tf.Tensor:
         shape = tf.shape(style_layer_output)
@@ -115,39 +104,12 @@ def calc_style_loss(style_style_outputs: list,
 
         return style/(num_locations)
 
-    style_styles = [calc_style(slo) for slo in style_style_outputs]
-    result_styles = [calc_style(slo) for slo in result_style_outputs]
+    style_style_values = [calc_style(slo) for slo in style_styles]
+    result_style_values = [calc_style(slo) for slo in result_styles]
 
-    mse = tf.keras.losses.MeanSquaredError()
-    losses = [mse(st, res) for st, res in zip(style_styles, result_styles)]
-    loss = tf.add_n(losses) / len(losses)
-
-    return loss
-
-
-def calc_total_loss(content_content_outputs: list, style_style_outputs: list,
-                    result_content_outputs: list, result_style_outputs: list,
-                    weights: dict) -> tf.Tensor:
-    """
-    Caculates total loss as weighted sum of content loss and style loss
-
-    Args:
-        content_content_outputs: List of tf.Tensors: list of content layer ouptuts
-            of content image processed through model
-        style_style_outputs: List of tf.Tensors: list of style layer ouptuts
-            of style image processed through model
-        result_content_outputs: List of tf.Tensors: list of content layer ouptuts
-            of result image processed through model
-        result_style_outputs: List of tf.Tensors: list of style layer ouptuts
-            of result image processed through model
-        weights: dict with keys 'content_weight', 'style_weight'
-
-    Returns:
-        loss: style_loss
-    """
-
-    content_loss = calc_content_loss(content_content_outputs, result_content_outputs)
-    style_loss = calc_style_loss(style_style_outputs, result_style_outputs)
+    style_losses = [tf.reduce_mean(st - res)**2
+                    for st, res in zip(style_style_values, result_style_values)]
+    style_loss = tf.add_n(style_losses) / len(style_losses)
 
     content_weight = weights['content_weight']
     style_weight = weights['style_weight']
@@ -178,16 +140,16 @@ def calculate_gradients(content: tf.Variable, style: tf.Variable, result: tf.Var
     """
 
     with tf.GradientTape() as tape:
-        content_content_outputs = model.process(content)[0]
-        style_style_outputs = model.process(style)[1]
-        result_content_ouputs = model.process(result)[0]
-        result_style_outputs = model.process(result)[1]
+        content_contents = model.process(content)[0]
+        style_styles = model.process(style)[1]
+        result_contents = model.process(result)[0]
+        result_styles = model.process(result)[1]
 
         loss_function_parameters = {
-            'content_content_outputs': content_content_outputs,
-            'style_style_outputs': style_style_outputs,
-            'result_content_outputs': result_content_ouputs,
-            'result_style_outputs': result_style_outputs,
+            'content_contents': content_contents,
+            'style_styles': style_styles,
+            'result_contents': result_contents,
+            'result_styles': result_styles,
             'weights': weights
         }
         loss_value = loss_function(**loss_function_parameters)
@@ -233,10 +195,11 @@ def generate_nst(content: np.array, style: np.array, model: NSTModel,
     model_input_size = model.input_shape[0:-1]
 
     result = preprocess_image(content, model_input_size)
+    result_keep = preprocess_image(content, model_input_size)
     content = preprocess_image(content, model_input_size)
     style = preprocess_image(style, model_input_size)
 
-    optimizer = tf.keras.optimizers.Adam(lr=lr)
+    optimizer = tf.keras.optimizers.Adam(lr=lr, beta_1=0.99, epsilon=1e-1)
     losses = []
 
     for step in range(epochs):
@@ -258,14 +221,14 @@ def generate_nst(content: np.array, style: np.array, model: NSTModel,
         losses.append(loss)
         optimizer.apply_gradients([(grads, result)])
 
-    trained_image = result.numpy().reshape(model.input_shape)
+    trained_image = result_keep.numpy().reshape(model.input_shape)
     trained_image = tf.image.resize(trained_image, original_shape[0:-1]).numpy()
     trained_image = normalize_image(trained_image)
 
     return trained_image, losses
 
 
-def preprocess_image(image: np.array, target_size=list) -> tf.Variable:
+def preprocess_image(image: np.array, target_size: tuple) -> tf.Variable:
     image = preprocess_input(image)
     image = tf.image.resize(image, target_size)
     image = image.numpy()

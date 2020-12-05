@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from pathlib import Path
 
-from nst.nst import normalize_image, NSTModel, generate_nst
+from nst.nst import NSTModel, generate_nst
 
 
 class NSTGui:
@@ -41,7 +41,7 @@ class NSTGui:
         )
 
         self._lr_selection = widgets.BoundedFloatText(
-            value=0.1,
+            value=0.02,
             min=0.0001,
             max=10,
             description='LR:',
@@ -49,7 +49,7 @@ class NSTGui:
         )
 
         self._content_weight_selection = widgets.BoundedFloatText(
-            value=1,
+            value=10000,
             min=0.0001,
             max=10000,
             description='Content Weight:',
@@ -57,7 +57,7 @@ class NSTGui:
         )
 
         self._style_weight_selection = widgets.BoundedFloatText(
-            value=1,
+            value=0.01,
             min=0.0001,
             max=10000,
             description='Style Weight:',
@@ -139,6 +139,8 @@ class NSTGui:
             print(self._nst_model.nst_model.outputs)
 
             self._trained_image, self._losses = generate_nst(**generator_parameters)
+
+            plt.plot(self._losses)
 
         with self._nst_result_output:
             self._nst_result_output.clear_output()
