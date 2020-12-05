@@ -190,6 +190,7 @@ def generate_nst(content: np.array, style: np.array, model: NSTModel,
     trained_image = tf.image.resize(result, original_shape[0:-1]).numpy()
     trained_image = tensor_to_image(trained_image)
     trained_image = img_to_array(trained_image)
+    trained_image = normalize_image(trained_image)
 
     return trained_image, losses
 
