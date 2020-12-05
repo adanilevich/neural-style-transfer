@@ -1,7 +1,7 @@
 import tensorflow as tf
 from tensorflow.keras.applications import VGG19
-#from tensorflow.keras.preprocessing.image import load_img, img_to_array
-#from tensorflow.keras.applications.vgg19 import preprocess_input
+# from tensorflow.keras.preprocessing.image import load_img, img_to_array
+from tensorflow.keras.applications.vgg19 import preprocess_input
 import numpy as np
 
 
@@ -76,11 +76,9 @@ def calc_content_loss(content_contents: list, result_contents: list) -> tf.Tenso
     Calculates content loss between processed target image and processed content image
     as meas squared error.
 
-    Args:
-        content_contents: List of tf.Tensors. List of content layers outputs for content image
-            processed through nst model.
-        result_contents: List of tf.Tensors. List of content layers outputs for
-            result target image processed through nst model.
+    Args: content_contents: List of tf.Tensors. List of content layers outputs for
+    content image processed through nst model. result_contents: List of tf.Tensors.
+    List of content layers outputs for result target image processed through nst model.
 
     Returns:
         loss: content loss
@@ -88,7 +86,7 @@ def calc_content_loss(content_contents: list, result_contents: list) -> tf.Tenso
 
     mse = tf.keras.losses.MeanSquaredError()
     losses = [mse(cont, res) for cont, res in zip(content_contents, result_contents)]
-    loss = tf.add_n(losses)/len(losses)
+    loss = tf.add_n(losses) / len(losses)
 
     return loss
 
@@ -121,7 +119,7 @@ def calc_style_loss(style_style_outputs: list,
 
     mse = tf.keras.losses.MeanSquaredError()
     losses = [mse(st, res) for st, res in zip(style_styles, result_styles)]
-    loss = tf.add_n(losses)/len(losses)
+    loss = tf.add_n(losses) / len(losses)
 
     return loss
 
@@ -210,8 +208,8 @@ def normalize_image(image):
     return image
 
 
-def generate_nst(content: tf.Variable, style: tf.Variable, model: NSTModel,
-                 epochs: int, lr: float, weights: dict, start_from_content=True) -> list:
+def generate_nst(content: np.array, style: np.array, model: NSTModel,
+                 epochs: int, lr: float, weights: dict, callback=None) -> list:
     """
     Performs optimization to return generated image
 
@@ -222,7 +220,7 @@ def generate_nst(content: tf.Variable, style: tf.Variable, model: NSTModel,
         epochs: number of fit iterations
         lr: learning rate (approx. 1)
         weights: dict with keys 'content_weight', 'style_weight'
-        start_from_content: if True, initial image will be set to content
+        callback: progress bar callback
 
     Returns:
         trained image: resulting nst image as np array of shape (x, y, 3), scaled to 0-1;
@@ -230,22 +228,21 @@ def generate_nst(content: tf.Variable, style: tf.Variable, model: NSTModel,
         losses: list of loss values for each training iteration
     """
 
-    if start_from_content:
-        result = content
-    else:
-        result_shape = tuple([1]) + model.input_shape
-        result = tf.Variable(
-            initial_value=tf.random.uniform(shape=result_shape, minval=0, maxval=255),
-            trainable=True
-        )
+    original_shape = content.shape
+    model_input_size = model.input_shape[0:-1]
+
+    result = preprocess_image(content, model_input_size)
+    content = preprocess_image(content, model_input_size)
+    style = preprocess_image(style, model_input_size)
 
     optimizer = tf.keras.optimizers.Adam(lr=lr)
     losses = []
 
     for step in range(epochs):
 
-        if step % 10 == 0:
-            print('Step:', step)
+        if step % (epochs / 100) == 0:
+            callback.value = step
+            callback.description = f'{int(100.0 * (step + 1) / epochs)}%'
 
         gradient_parameters = {
             'content': content,
@@ -261,6 +258,18 @@ def generate_nst(content: tf.Variable, style: tf.Variable, model: NSTModel,
         optimizer.apply_gradients([(grads, result)])
 
     trained_image = result.numpy().reshape(model.input_shape)
+    trained_image = tf.image.resize(trained_image, original_shape[0:-1]).numpy()
     trained_image = normalize_image(trained_image)
 
     return trained_image, losses
+
+
+def preprocess_image(image: np.array, target_size=list) -> tf.Variable:
+    image = preprocess_input(image)
+    image = tf.image.resize(image, target_size)
+    image = image.numpy()
+    image = image[np.newaxis,...]
+    image = tf.Variable(image, dtype=tf.float32)
+
+    return image
+
