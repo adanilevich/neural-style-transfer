@@ -145,6 +145,7 @@ def generate_nst(content: np.array, style: np.array, model: NSTModel,
     model_input_size = model.input_shape[0:-1]
 
     result = preprocess_image(content, model_input_size)
+    result_keep = preprocess_image(content, model_input_size)
     content = preprocess_image(content, model_input_size)
     style = preprocess_image(style, model_input_size)
 
@@ -177,16 +178,13 @@ def generate_nst(content: np.array, style: np.array, model: NSTModel,
         grads = tape.gradient(loss, result)
 
         print(type(loss))
+        print(loss)
 
         losses.append(loss)
         optimizer.apply_gradients([(grads, result)])
         result.assign(tf.clip_by_value(result, clip_value_min=0.0, clip_value_max=1.0))
 
-        # print('MAX:', np.max(result.numpy()))
-        # print('MIN:', np.min(result.numpy()))
-        # print('GRAD:', tf.reduce_mean(grads**2).numpy())
-
-    trained_image = result.numpy().reshape(model.input_shape)
+    trained_image = result_keep.numpy().reshape(model.input_shape)
     trained_image = tf.image.resize(trained_image, original_shape[0:-1]).numpy()
     trained_image = normalize_image(trained_image)
 
