@@ -120,15 +120,15 @@ def calc_total_loss(content_contents: list, style_styles: list,
 
 
 @tf.function()
-def calculate_gradients(content: tf.Variable, style: tf.Variable, result: tf.Variable,
+def calculate_gradients(content_outputs: list, style_outputs: list, result: tf.Variable,
                         loss_function: tf.keras.losses.Loss, model: tf.keras.Model,
                         weights: dict) -> list:
     """
     Calculates loss and its gradients with respect to target image
 
     Args:
-        content: content image before processing through model
-        style: style image before processing through model
+        content_outpus: content image processes through model
+        style_outputs: style image processed through model
         result: result image before processing through model
         loss_function: loss function to appply to content, style, result
         model: keras model for NST
@@ -140,16 +140,14 @@ def calculate_gradients(content: tf.Variable, style: tf.Variable, result: tf.Var
     """
 
     with tf.GradientTape() as tape:
-        content_contents = model.process(content)[0]
-        style_styles = model.process(style)[1]
-        result_contents = model.process(result)[0]
-        result_styles = model.process(result)[1]
+
+        result_outputs = model.process(result)
 
         loss_function_parameters = {
-            'content_contents': content_contents,
-            'style_styles': style_styles,
-            'result_contents': result_contents,
-            'result_styles': result_styles,
+            'content_contents': content_outputs[0],
+            'style_styles': style_outputs[1],
+            'result_contents': result_outputs[0],
+            'result_styles': result_outputs[1],
             'weights': weights
         }
         loss_value = loss_function(**loss_function_parameters)
@@ -206,6 +204,9 @@ def generate_nst(content: np.array, style: np.array, model: NSTModel,
     optimizer = tf.keras.optimizers.Adam(lr=lr, beta_1=0.99, epsilon=1e-1)
     losses = []
 
+    content_outputs = model.process(content)
+    style_outputs = model.process(style)
+
     for step in range(epochs):
 
         if step % (epochs / 100) == 0:
@@ -213,8 +214,8 @@ def generate_nst(content: np.array, style: np.array, model: NSTModel,
             callback.description = f'{int(100.0 * (step + 1) / epochs)}%'
 
         gradient_parameters = {
-            'content': content,
-            'style': style,
+            'content_outputs': content_outputs,
+            'style_outputs': style_outputs,
             'result': result,
             'model': model,
             'loss_function': calc_total_loss,
