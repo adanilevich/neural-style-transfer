@@ -1,7 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras.applications import VGG19
 # from tensorflow.keras.preprocessing.image import load_img, img_to_array
-from tensorflow.keras.applications.vgg19 import preprocess_input
 import numpy as np
 
 
@@ -63,15 +62,6 @@ class NSTModel:
         return contents, styles
 
 
-def init_result(result_shape):
-    result_image = tf.Variable(
-        initial_value=tf.random.uniform(shape=result_shape, minval=0, maxval=255),
-        trainable=True
-    )
-
-    return result_image
-
-
 def calc_total_loss(content_contents: list, style_styles: list,
                     result_contents: list, result_styles: list,
                     weights: dict) -> tf.Tensor:
@@ -119,44 +109,6 @@ def calc_total_loss(content_contents: list, style_styles: list,
     return total_loss
 
 
-@tf.function()
-def calculate_gradients(content_outputs: list, style_outputs: list, result: tf.Variable,
-                        loss_function: tf.keras.losses.Loss, model: tf.keras.Model,
-                        weights: dict) -> list:
-    """
-    Calculates loss and its gradients with respect to target image
-
-    Args:
-        content_outpus: content image processes through model
-        style_outputs: style image processed through model
-        result: result image before processing through model
-        loss_function: loss function to appply to content, style, result
-        model: keras model for NST
-        weights: dict with keys 'content_weight', 'style_weight'
-
-    Returns:
-        loss_value: total loss value (content and style) between three images
-        grads: gradients of loss with respect to input image
-    """
-
-    with tf.GradientTape() as tape:
-
-        result_outputs = model.process(result)
-
-        loss_function_parameters = {
-            'content_contents': content_outputs[0],
-            'style_styles': style_outputs[1],
-            'result_contents': result_outputs[0],
-            'result_styles': result_outputs[1],
-            'weights': weights
-        }
-        loss_value = loss_function(**loss_function_parameters)
-
-    grads = tape.gradient(loss_value, result)
-
-    return loss_value, grads
-
-
 def normalize_image(image):
     """
     Rescales np array to range 0..1
@@ -193,13 +145,8 @@ def generate_nst(content: np.array, style: np.array, model: NSTModel,
     model_input_size = model.input_shape[0:-1]
 
     result = preprocess_image(content, model_input_size)
-    result_keep = preprocess_image(content, model_input_size)
     content = preprocess_image(content, model_input_size)
     style = preprocess_image(style, model_input_size)
-
-    print('\n')
-    print(np.max(content.numpy()), np.min(content.numpy()))
-    print(np.max(style.numpy()), np.min(style.numpy()))
 
     optimizer = tf.keras.optimizers.Adam(lr=lr, beta_1=0.99, epsilon=1e-1)
     losses = []
@@ -213,23 +160,31 @@ def generate_nst(content: np.array, style: np.array, model: NSTModel,
             callback.value = step
             callback.description = f'{int(100.0 * (step + 1) / epochs)}%'
 
-        gradient_parameters = {
-            'content_outputs': content_outputs,
-            'style_outputs': style_outputs,
-            'result': result,
-            'model': model,
-            'loss_function': calc_total_loss,
-            'weights': weights
-        }
-        loss, grads = calculate_gradients(**gradient_parameters)
+        with tf.GradientTape() as tape:
+
+            result_outputs = model.process(result)
+
+            loss_function_parameters = {
+                'content_contents': content_outputs[0],
+                'style_styles': style_outputs[1],
+                'result_contents': result_outputs[0],
+                'result_styles': result_outputs[1],
+                'weights': weights
+            }
+
+            loss = calc_total_loss(**loss_function_parameters)
+
+        grads = tape.gradient(loss, result)
+
+        print(type(loss))
 
         losses.append(loss)
         optimizer.apply_gradients([(grads, result)])
         result.assign(tf.clip_by_value(result, clip_value_min=0.0, clip_value_max=1.0))
 
-        print('MAX:', np.max(result.numpy()))
-        print('MIN:', np.min(result.numpy()))
-        print('GRAD:', tf.reduce_mean(grads**2).numpy())
+        # print('MAX:', np.max(result.numpy()))
+        # print('MIN:', np.min(result.numpy()))
+        # print('GRAD:', tf.reduce_mean(grads**2).numpy())
 
     trained_image = result.numpy().reshape(model.input_shape)
     trained_image = tf.image.resize(trained_image, original_shape[0:-1]).numpy()
