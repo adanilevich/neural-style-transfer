@@ -134,13 +134,10 @@ class NSTGui:
             print('Starting generation with following parameters:')
             [print(f'{k}:', v) for k, v in print_parameters.items()]
 
-            print(self._nst_model.content_layers)
-            print(self._nst_model.style_layers)
-            print(self._nst_model.nst_model.outputs)
-
             self._trained_image, self._losses = generate_nst(**generator_parameters)
 
             plt.plot(self._losses)
+            plt.show()
 
         with self._nst_result_output:
             self._nst_result_output.clear_output()

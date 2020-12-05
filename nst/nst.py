@@ -199,6 +199,10 @@ def generate_nst(content: np.array, style: np.array, model: NSTModel,
     content = preprocess_image(content, model_input_size)
     style = preprocess_image(style, model_input_size)
 
+    print('\n')
+    print(np.max(content.numpy()), np.min(content.numpy()))
+    print(np.max(style.numpy()), np.min(style.numpy()))
+
     optimizer = tf.keras.optimizers.Adam(lr=lr, beta_1=0.99, epsilon=1e-1)
     losses = []
 
@@ -220,6 +224,11 @@ def generate_nst(content: np.array, style: np.array, model: NSTModel,
 
         losses.append(loss)
         optimizer.apply_gradients([(grads, result)])
+        result.assign(tf.clip_by_value(result, clip_value_min=0.0, clip_value_max=1.0))
+
+        print('MAX:', np.max(result.numpy()))
+        print('MIN:', np.min(result.numpy()))
+        print('GRAD:', tf.reduce_mean(grads**2).numpy())
 
     trained_image = result.numpy().reshape(model.input_shape)
     trained_image = tf.image.resize(trained_image, original_shape[0:-1]).numpy()
@@ -230,6 +239,7 @@ def generate_nst(content: np.array, style: np.array, model: NSTModel,
 
 def preprocess_image(image: np.array, target_size: tuple) -> tf.Variable:
     #image = preprocess_input(image)
+    image = image/255.0
     image = tf.image.resize(image, target_size)
     image = image.numpy()
     image = image[np.newaxis,...]
