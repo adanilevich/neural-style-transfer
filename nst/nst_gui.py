@@ -2,9 +2,7 @@ import ipywidgets as widgets
 from IPython.display import display
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
-from tensorflow.keras.preprocessing.image import load_img, img_to_array
-import tensorflow as tf
-import numpy as np
+from pathlib import Path
 
 from nst.nst import normalize_image, NSTModel, generate_nst
 
@@ -17,13 +15,13 @@ class NSTGui:
 
     def __init__(self):
         # DEFAULT VALUES
-        self._content_image_path = 'images/content_carina_2.jpg'
-        self._style_image_path = 'images/style_kandinsky_7.jpg'
+        self._content_image_path = Path('images/content_carina_2.jpg')
+        self._style_image_path = Path('images/style_kandinsky_7.jpg')
         self._nst_model = None
 
         # IMAGE SELECTION
-        self._selected_content_image = widgets.Label(value=self._content_image_path)
-        self._selected_style_image = widgets.Label(value=self._style_image_path)
+        self._selected_content_image = widgets.Label(value=self._content_image_path.name)
+        self._selected_style_image = widgets.Label(value=self._style_image_path.name)
         self._select_content_image_button = \
             widgets.Button(description='Content Image')
         self._select_content_image_button.on_click(self._click_select_images_button)
@@ -87,11 +85,13 @@ class NSTGui:
         self._gui = self._compose_gui()
 
     def _click_select_images_button(self, b: widgets.Button):
-        self._content_image_path = 'images/content_carina_2.jpg'
-        self._style_image_path = 'images/style_kandinsky_7.jpg'
+        self._content_image_path = Path(__file__).parent.parent/\
+                                   r'images/content_carina_2.jpg'
+        self._style_image_path = Path(__file__).parent.parent/\
+                                 'images/style_kandinsky_7.jpg'
 
-        self._selected_content_image.value = self._content_image_path
-        self._selected_style_image.value = self._style_image_path
+        self._selected_content_image.value = self._content_image_path.name
+        self._selected_style_image.value = self._style_image_path.name
 
         self._content_raw = mpimg.imread(self._content_image_path)
         self._style_raw = mpimg.imread(self._style_image_path)
