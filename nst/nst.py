@@ -221,7 +221,7 @@ def generate_nst(content: np.array, style: np.array, model: NSTModel,
         losses.append(loss)
         optimizer.apply_gradients([(grads, result)])
 
-    trained_image = result_keep.numpy().reshape(model.input_shape)
+    trained_image = result.numpy().reshape(model.input_shape)
     trained_image = tf.image.resize(trained_image, original_shape[0:-1]).numpy()
     trained_image = normalize_image(trained_image)
 
@@ -229,7 +229,7 @@ def generate_nst(content: np.array, style: np.array, model: NSTModel,
 
 
 def preprocess_image(image: np.array, target_size: tuple) -> tf.Variable:
-    image = preprocess_input(image)
+    #image = preprocess_input(image)
     image = tf.image.resize(image, target_size)
     image = image.numpy()
     image = image[np.newaxis,...]
