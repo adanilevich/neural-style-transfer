@@ -198,23 +198,30 @@ def mid_process_image(image: tf.Variable, clip_only=False):
         image.assign(tf.clip_by_value(image, clip_value_min=-115.0, clip_value_max=140.0))
     else:
         image = image.numpy()
-        print('MAX:', np.max(image))
-        print('MIN:', np.min(image))
+        print_channels('BEFORE PROCESSING', image)
         image = normalize_image(image) * 255.0
-        print('MAX_POST_SCALING:', np.max(image))
-        print('MIN_POST_SCALING:', np.min(image))
+        print_channels('AFTER NORMALIZATION', image)
 
         image[:, :, :, 0] -= 103.939
         image[:, :, :, 1] -= 116.779
         image[:, :, :, 2] -= 123.68
 
-        print('MAX_POST_VGG:', np.max(image))
-        print('MIN_POST_VGG:', np.min(image))
-        print('MIN_POST_VGG:', np.min(image))
+        print_channels('AFTER VGG BALANCING', image)
 
         image = tf.Variable(image, dtype=tf.float32)
 
     return image
+
+def print_channels(step, image):
+
+    channel_map = {0: 'BLUE', 1: 'GREEN', 2: 'RED'}
+    print(step)
+
+    for channel in [0, 1, 2]:
+        max = np.max(image[0, :, :, channel])
+        min = np.min(image[0, :, :, channel])
+        avg = np.mean(image[0, :, :, channel])
+        print(f'CHANNEL: {channel_map[channel]}; MAX: {max}; MIN: {min}; AVG: {avg}')
 
 
 def preprocess_image(image_path: Path, target_size: tuple) -> tf.Variable:
