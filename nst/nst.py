@@ -155,6 +155,7 @@ def generate_nst(content_path: Path, style_path: Path, model: NSTModel,
 
         with tf.GradientTape() as tape:
 
+            result_preprocessed = test_process(result)
             result_outputs = model.process(result)
             loss = calc_loss(content_outputs, style_outputs, result_outputs, weights)
 
@@ -162,11 +163,18 @@ def generate_nst(content_path: Path, style_path: Path, model: NSTModel,
 
         losses.append(loss)
         optimizer.apply_gradients([(grads, result)])
-        result = mid_process_image(result, clip_only=True)
+        result.assign(tf.clip_by_value(result, clip_value_min=0, clip_value_max=1))
+        #result = mid_process_image(result, clip_only=True)
 
     trained_image = postprocess_image(result, original_shape)
 
     return trained_image, losses
+
+
+def test_process(image):
+    image = image * 255.0
+    preprocessed_image = preprocess_input(image)
+    return preprocessed_image
 
 
 def normalize_image(image):
