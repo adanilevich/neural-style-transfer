@@ -185,7 +185,7 @@ def generate_nst(content_path: Path, style_path: Path, model: NSTModel,
 
 def load_img(path_to_img):
     max_dim = 512
-    img = tf.io.read_file(path_to_img)
+    img = tf.io.read_file(str(path_to_img))
     img = tf.image.decode_image(img, channels=3)
     img = tf.image.convert_image_dtype(img, tf.float32)
 
