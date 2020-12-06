@@ -61,6 +61,11 @@ class NSTModel:
             styles: list of resulting style outputs according to init parameters
         """
 
+        # THIS IS EXPERIMENTAL:
+        image = image/255.0
+        image = preprocess_input(image)
+        # END EXPERIMENTAL
+
         contents = self.nst_model(image)[0:len(self.content_layers)]
         styles = self.nst_model(image)[len(self.content_layers):]
 
@@ -139,9 +144,15 @@ def generate_nst(content_path: Path, style_path: Path, model: NSTModel,
     original_shape = mpimg.imread(content_path).shape
     model_input_size = model.input_shape[0:-1]
 
-    result = preprocess_image(content_path, model_input_size)
-    content = preprocess_image(content_path, model_input_size)
-    style = preprocess_image(style_path, model_input_size)
+    # result = preprocess_image(content_path, model_input_size)
+    # content = preprocess_image(content_path, model_input_size)
+    # style = preprocess_image(style_path, model_input_size)
+
+    # THIS IS EXPERIMENTAL
+    result = test_pre_process(content_path, model_input_size)
+    content = test_pre_process(content_path, model_input_size)
+    style = test_pre_process(style_path, model_input_size)
+    # END EXPERIMENT
 
     optimizer = tf.keras.optimizers.Adam(lr=lr, beta_1=0.99, epsilon=1e-1)
     losses = []
@@ -155,7 +166,6 @@ def generate_nst(content_path: Path, style_path: Path, model: NSTModel,
 
         with tf.GradientTape() as tape:
 
-            result_preprocessed = test_process(result)
             result_outputs = model.process(result)
             loss = calc_loss(content_outputs, style_outputs, result_outputs, weights)
 
@@ -171,10 +181,16 @@ def generate_nst(content_path: Path, style_path: Path, model: NSTModel,
     return trained_image, losses
 
 
-def test_process(image):
-    image = image * 255.0
-    preprocessed_image = preprocess_input(image)
-    return preprocessed_image
+def test_pre_process(image_path, target_size):
+
+    image = mpimg.imread(image_path)  # read to numpy array
+    print(f'Preprocessing image {image_path.name} from {image.shape} to {target_size}')
+    image  = tf.image.resize(image, target_size)
+    image = image[np.newaxis, ...]  # add batch dimension
+    image = image/255.0 # scale to [0, 1]
+    image = tf.Variable(image, dtype=tf.float32)
+
+    return image
 
 
 def normalize_image(image):
