@@ -16,6 +16,7 @@ class NSTGui:
     def __init__(self):
         # DEFAULT VALUES
         parent_path = Path(__file__).parent.parent
+        image_path = parent_path/'images'
         self._content_image_path = parent_path/'images/content_dog.jpg'
         self._style_image_path = parent_path/'images/style_kandinsky_7.jpg'
         self._content = mpimg.imread(self._content_image_path)
@@ -24,14 +25,29 @@ class NSTGui:
         self._nst_model = None
 
         # IMAGE SELECTION
-        self._selected_content_image = widgets.Label(value=self._content_image_path.name)
-        self._selected_style_image = widgets.Label(value=self._style_image_path.name)
+        #self._selected_content_image = widgets.Label(value=self._content_image_path.name)
+        #self._selected_style_image = widgets.Label(value=self._style_image_path.name)
 
-        self._select_content_image_button = widgets.Button(description='Content Image')
-        self._select_content_image_button.on_click(self._click_select_images_button)
+        #self._select_content_image_button = widgets.Button(description='Content Image')
+        #self._select_content_image_button.on_click(self._click_select_images_button)
 
-        self._select_style_image_button = widgets.Button(description='Style Image')
-        self._select_style_image_button.on_click(self._click_select_images_button)
+        #self._select_style_image_button = widgets.Button(description='Style Image')
+        #self._select_style_image_button.on_click(self._click_select_images_button)
+
+        self._content_selection = widgets.Dropdown(
+            options = [f.name for f in image_path.iterdir() if f.is_file()],
+            value = self._content_image_path.name,
+            description = 'Content'
+        )
+
+        self._style_selection = widgets.Dropdown(
+            options = [f.name for f in image_path.iterdir() if f.is_file()],
+            value = self._style_image_path.name,
+            description = 'Style'
+        )
+
+        self._display_selection_button = widgets.Button(description='Display')
+        self._display_selection_button.on_click(self._click_display_selection)
 
         # TRAINING PARAMETERS
         self._epoch_selection = widgets.BoundedIntText(
@@ -117,7 +133,19 @@ class NSTGui:
 
             plt.show()
 
+    def _click_display_selection(self, b: widgets.Button):
+
+        parent_path = Path(__file__).parent.parent
+        self._content_image_path = parent_path/f'images/{self._content_selection.value}'
+        self._content = mpimg.imread(self._content_image_path)
+        self._style_image_path = parent_path / f'images/{self._style_selection.value}'
+        self._style = mpimg.imread(self._style_image_path)
+        self._result = mpimg.imread(self._content_image_path)
+        self._plot_images()
+
     def _click_select_images_button(self, b: widgets.Button):
+
+        display(widgets.FileUpload())
 
         self._text_output.clear_output()
 
@@ -186,13 +214,16 @@ class NSTGui:
         # DEFINE INPUT BOXES
         image_selection = widgets.HBox([
             widgets.VBox([
-                self._select_content_image_button,
-                self._select_style_image_button,
+                #self._select_content_image_button,
+                #self._select_style_image_button,
+                self._content_selection,
+                self._style_selection,
+                self._display_selection_button,
                 self._generate_button
             ], layout=layout_padding),
             widgets.VBox([
-                self._selected_content_image,
-                self._selected_style_image,
+                #self._selected_content_image,
+                #self._selected_style_image,
                 self._progress_bar
             ], layout=layout_padding),
         ], layout=layout_boxes)
