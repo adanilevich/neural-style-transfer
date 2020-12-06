@@ -9,13 +9,12 @@ import matplotlib.image as mpimg
 # from tensorflow.keras.preprocessing.image import img_to_array
 
 
-class NSTModel:
+class NSTModel():
 
-    def __init__(self, content_layers: list = None, style_layers: list = None,
-                 base_model: tf.keras.models.Model = None):
+    def __init__(self, content_layers: list = None, style_layers: list = None):
 
-        if base_model is None:
-            base_model = VGG19(include_top=False, weights='imagenet')
+        base_model = VGG19(include_top=False, weights='imagenet')
+        base_model.trainable = False
 
         if content_layers is None:
             content_layers = ['block5_conv2']
@@ -29,13 +28,11 @@ class NSTModel:
                 'block5_conv1'
             ]
 
-        base_model.trainable = False
-        self.input_shape = (224, 224, 3)
-        self.content_layers = content_layers
-        self.style_layers = style_layers
-
         content_outputs = []
         style_outputs = []
+
+        self.content_layers = content_layers
+        self.style_layers = style_layers
 
         for layer in base_model.layers:
             if layer.name in self.content_layers:
@@ -43,37 +40,45 @@ class NSTModel:
             if layer.name in self.style_layers:
                 style_outputs.append(layer.output)
 
-        outputs = content_outputs + style_outputs
+        outputs = {'content': content_outputs, 'style': style_outputs}
         model = tf.keras.Model(inputs=base_model.inputs, outputs=outputs)
 
         self.nst_model = model
 
     def process(self, image: tf.Variable) -> tf.Tensor:
-        """
-        Processes the input image through nst model and returns contents
-        and styles
-
-        Args:
-            image: image to be processed as tf.Variable
-
-        Returns:
-            contents: list of resulting content outputs according to init paramters
-            styles: list of resulting style outputs according to init parameters
-        """
 
         # THIS IS EXPERIMENTAL:
-        image = image/255.0
+        image = image*255.0
         image = preprocess_input(image)
         # END EXPERIMENTAL
 
         outputs = self.nst_model(image)
-        contents = outputs[0:len(self.content_layers)]
-        styles = outputs[len(self.content_layers):]
+        contents = outputs['content']
+        style_outputs = outputs['style']
+        styles = [gram_matrix(style_output) for style_output in style_outputs]
 
-        return contents, styles
+        return {'content': contents, 'style': styles}
 
 
-def calc_loss(content_outputs: list, style_outputs: list, result_outputs: list,
+def gram_matrix(style_layer_output: tf.Tensor) -> tf.Tensor:
+    """
+    Calculates Gram's matrix as inner product between different channels
+
+    Args:
+        style_layer_output: output of model layer of shape (i, j, k, l)
+
+    Returns:
+        gram: layer correlation matrix of shape (i, l, l)
+    """
+
+    shape = tf.shape(style_layer_output)
+    style = tf.linalg.einsum('ijkl,ijkm->ilm', style_layer_output, style_layer_output)
+    num_locations = tf.cast(shape[1] * shape[2], tf.float32)
+
+    return style / num_locations
+
+
+def calc_loss(content_outputs: dict, style_outputs: dict, result_outputs: dict,
               weights: dict) -> tf.Tensor:
     """
     Caculates total loss as weighted sum of content loss and style loss
@@ -89,37 +94,24 @@ def calc_loss(content_outputs: list, style_outputs: list, result_outputs: list,
     """
 
     # UNPACKING
-    content_contents = content_outputs[0]
-    style_styles = style_outputs[1]
-    result_contents = result_outputs[0]
-    result_styles = result_outputs[1]
+    content_contents = content_outputs['content']
+    style_styles = style_outputs['style']
+    result_contents = result_outputs['content']
+    result_styles = result_outputs['style']
     content_weight = weights['content_weight']
     style_weight = weights['style_weight']
 
     # CONTENT LOSS
-    content_losses = [tf.reduce_mean((cont - res) ** 2)
+    content_losses = [tf.reduce_mean((cont - res)** 2)
                       for cont, res in zip(content_contents, result_contents)]
-    content_loss = tf.add_n(content_losses)
-    content_loss *= content_weight / len(content_losses)
+    content_loss = tf.add_n(content_losses) * content_weight / len(content_losses)
 
     # STYLE LOSS
-    def calc_style(style_layer_output: tf.Tensor) -> tf.Tensor:
-        shape = tf.shape(style_layer_output)
-        style = tf.linalg.einsum('ijkl,ijkm->ilm', style_layer_output, style_layer_output)
-        num_locations = tf.cast(shape[1] * shape[2] * shape[3], tf.float32)
-        return style / (2 * num_locations)
-
-    style_style_values = [calc_style(slo) for slo in style_styles]
-    result_style_values = [calc_style(slo) for slo in result_styles]
-
     style_losses = [tf.reduce_mean((st - res) ** 2)
-                    for st, res in zip(style_style_values, result_style_values)]
-    style_loss = tf.add_n(style_losses)
-    style_loss *= style_weight / len(style_losses)
+                    for st, res in zip(style_styles, result_styles)]
+    style_loss = tf.add_n(style_losses) * style_weight / len(style_losses)
 
-    total_loss = style_loss + content_loss
-
-    return total_loss
+    return style_loss + content_loss
 
 
 def generate_nst(content_path: Path, style_path: Path, model: NSTModel,
@@ -143,18 +135,11 @@ def generate_nst(content_path: Path, style_path: Path, model: NSTModel,
     """
 
     original_shape = mpimg.imread(content_path).shape
-    model_input_size = model.input_shape[0:-1]
 
-    # result = preprocess_image(content_path, model_input_size)
-    # content = preprocess_image(content_path, model_input_size)
-    # style = preprocess_image(style_path, model_input_size)
-
-    # THIS IS EXPERIMENTAL
-    result = load_img(content_path)
+    content = test_preprocess_image(content_path)
+    style = test_preprocess_image(style_path)
+    result = test_preprocess_image(content_path)
     result = tf.Variable(result)
-    content = load_img(content_path)
-    style = load_img(style_path)
-    # END EXPERIMENT
 
     optimizer = tf.keras.optimizers.Adam(lr=lr, beta_1=0.99, epsilon=1e-1)
     losses = []
@@ -183,32 +168,19 @@ def generate_nst(content_path: Path, style_path: Path, model: NSTModel,
     return trained_image, losses
 
 
-def load_img(path_to_img):
-    max_dim = 512
-    img = tf.io.read_file(str(path_to_img))
-    img = tf.image.decode_image(img, channels=3)
-    img = tf.image.convert_image_dtype(img, tf.float32)
-
-    shape = tf.cast(tf.shape(img)[:-1], tf.float32)
-    long_dim = max(shape)
-    scale = max_dim / long_dim
-
-    new_shape = tf.cast(shape * scale, tf.int32)
-
-    img = tf.image.resize(img, new_shape)
-    img = img[tf.newaxis, :]
-
-    return img
+def test_preprocess_image(image_path):
 
 
-def test_pre_process(image_path, target_size):
+    image = mpimg.imread(image_path).astype(np.float32)  # read to numpy array
 
-    image = mpimg.imread(image_path)  # read to numpy array
-    print(f'Preprocessing image {image_path.name} from {image.shape} to {target_size}')
-    image  = tf.image.resize(image, target_size)
+    max_ = np.max(image.shape)
+    scaling_factor = max_/512.0
+    target_shape = [int(i/scaling_factor) for i in image.shape[:-1]] + [3]
+
+    print(f'Preprocessing image {image_path.name} from {image.shape} to {target_shape}')
+    image  = tf.image.resize(image, target_shape[:-1])
     image = image[np.newaxis, ...]  # add batch dimension
     image = image/255.0 # scale to [0, 1]
-    image = tf.Variable(image, dtype=tf.float32)
 
     return image
 
