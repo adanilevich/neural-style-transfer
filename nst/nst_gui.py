@@ -25,14 +25,6 @@ class NSTGui:
         self._nst_model = None
 
         # IMAGE SELECTION
-        #self._selected_content_image = widgets.Label(value=self._content_image_path.name)
-        #self._selected_style_image = widgets.Label(value=self._style_image_path.name)
-
-        #self._select_content_image_button = widgets.Button(description='Content Image')
-        #self._select_content_image_button.on_click(self._click_select_images_button)
-
-        #self._select_style_image_button = widgets.Button(description='Style Image')
-        #self._select_style_image_button.on_click(self._click_select_images_button)
 
         self._content_selection = widgets.Dropdown(
             options = [f.name for f in image_path.iterdir() if f.is_file()],
@@ -143,15 +135,6 @@ class NSTGui:
         self._result = mpimg.imread(self._content_image_path)
         self._plot_images()
 
-    def _click_select_images_button(self, b: widgets.Button):
-
-        display(widgets.FileUpload())
-
-        self._text_output.clear_output()
-
-        with self._text_output:
-            print('Image selection currently disabled')
-
     def _click_generate(self, b: widgets.Button):
 
         self._progress_bar.max = self._epoch_selection.value
@@ -214,16 +197,12 @@ class NSTGui:
         # DEFINE INPUT BOXES
         image_selection = widgets.HBox([
             widgets.VBox([
-                #self._select_content_image_button,
-                #self._select_style_image_button,
                 self._content_selection,
                 self._style_selection,
-                self._display_selection_button,
-                self._generate_button
             ], layout=layout_padding),
             widgets.VBox([
-                #self._selected_content_image,
-                #self._selected_style_image,
+                self._display_selection_button,
+                self._generate_button,
                 self._progress_bar
             ], layout=layout_padding),
         ], layout=layout_boxes)

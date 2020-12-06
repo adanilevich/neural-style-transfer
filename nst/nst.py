@@ -162,7 +162,7 @@ def generate_nst(content_path: Path, style_path: Path, model: NSTModel,
 
         losses.append(loss)
         optimizer.apply_gradients([(grads, result)])
-        result = mid_process_image(result, clip_only=False)
+        result = mid_process_image(result, clip_only=True)
 
     trained_image = postprocess_image(result, original_shape)
 
