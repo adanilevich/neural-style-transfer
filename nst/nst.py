@@ -201,11 +201,10 @@ def mid_process_image(image: tf.Variable, clip_only=False):
         print_channels('BEFORE PROCESSING', image)
         image = normalize_image(image) * 255.0
         print_channels('AFTER NORMALIZATION', image)
-
-        image[:, :, :, 0] -= 103.939
-        image[:, :, :, 1] -= 116.779
-        image[:, :, :, 2] -= 123.68
-
+        preprocess_input(image)
+        # image[:, :, :, 0] -= 103.939
+        # image[:, :, :, 1] -= 116.779
+        # image[:, :, :, 2] -= 123.68
         print_channels('AFTER VGG BALANCING', image)
 
         image = tf.Variable(image, dtype=tf.float32)
@@ -265,9 +264,9 @@ def postprocess_image(image: tf.Tensor, original_shape: tuple) -> np.array:
     image = image.reshape(image.shape[1:])  # drop batch dimension
 
     # INVERTING VGG19 PREPROCESSING
-    # image[:, :, 0] += 103.939
-    # image[:, :, 1] += 116.779
-    # image[:, :, 2] += 123.68
+    image[:, :, 0] += 103.939
+    image[:, :, 1] += 116.779
+    image[:, :, 2] += 123.68
     image = image[:, :, ::-1]
 
     image = tf.image.resize(image, original_shape[0:-1]).numpy()
