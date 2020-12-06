@@ -198,12 +198,21 @@ def mid_process_image(image: tf.Variable, clip_only=False):
         image.assign(tf.clip_by_value(image, clip_value_min=-115.0, clip_value_max=140.0))
     else:
         image = image.numpy()
-        image = normalize_image(image) * 255
+        print('MAX:', np.max(image))
+        print('MIN:', np.min(image))
+        image = normalize_image(image) * 255.0
+        print('MAX_POST_SCALING:', np.max(image))
+        print('MIN_POST_SCALING:', np.min(image))
+
         image[:, :, :, 0] -= 103.939
         image[:, :, :, 1] -= 116.779
         image[:, :, :, 2] -= 123.68
 
-        image = tf.Variable(image)
+        print('MAX_POST_VGG:', np.max(image))
+        print('MIN_POST_VGG:', np.min(image))
+        print('MIN_POST_VGG:', np.min(image))
+
+        image = tf.Variable(image, dtype=tf.float32)
 
     return image
 
