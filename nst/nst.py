@@ -15,7 +15,7 @@ class NSTModel:
                  base_model: tf.keras.models.Model = None):
 
         if base_model is None:
-            base_model = VGG19(include_top=False)
+            base_model = VGG19(include_top=False, weights='imagenet')
 
         if content_layers is None:
             content_layers = ['block5_conv2']
@@ -66,8 +66,9 @@ class NSTModel:
         image = preprocess_input(image)
         # END EXPERIMENTAL
 
-        contents = self.nst_model(image)[0:len(self.content_layers)]
-        styles = self.nst_model(image)[len(self.content_layers):]
+        outputs = self.nst_model(image)
+        contents = outputs[0:len(self.content_layers)]
+        styles = outputs[len(self.content_layers):]
 
         return contents, styles
 
@@ -149,9 +150,10 @@ def generate_nst(content_path: Path, style_path: Path, model: NSTModel,
     # style = preprocess_image(style_path, model_input_size)
 
     # THIS IS EXPERIMENTAL
-    result = test_pre_process(content_path, model_input_size)
-    content = test_pre_process(content_path, model_input_size)
-    style = test_pre_process(style_path, model_input_size)
+    result = load_img(content_path)
+    result = tf.Variable(result)
+    content = load_img(content_path)
+    style = load_img(style_path)
     # END EXPERIMENT
 
     optimizer = tf.keras.optimizers.Adam(lr=lr, beta_1=0.99, epsilon=1e-1)
@@ -179,6 +181,24 @@ def generate_nst(content_path: Path, style_path: Path, model: NSTModel,
     trained_image = postprocess_image(result, original_shape)
 
     return trained_image, losses
+
+
+def load_img(path_to_img):
+    max_dim = 512
+    img = tf.io.read_file(path_to_img)
+    img = tf.image.decode_image(img, channels=3)
+    img = tf.image.convert_image_dtype(img, tf.float32)
+
+    shape = tf.cast(tf.shape(img)[:-1], tf.float32)
+    long_dim = max(shape)
+    scale = max_dim / long_dim
+
+    new_shape = tf.cast(shape * scale, tf.int32)
+
+    img = tf.image.resize(img, new_shape)
+    img = img[tf.newaxis, :]
+
+    return img
 
 
 def test_pre_process(image_path, target_size):
@@ -222,26 +242,11 @@ def mid_process_image(image: tf.Variable, clip_only=False):
         image.assign(tf.clip_by_value(image, clip_value_min=-115.0, clip_value_max=140.0))
     else:
         image = image.numpy()
-        #print_channels('BEFORE PROCESSING', image)
         image = normalize_image(image) * 255.0
-        #print_channels('AFTER NORMALIZATION', image)
         image = image - 128.0
-        #print_channels('AFTER VGG BALANCING', image)
         image = tf.Variable(image, dtype=tf.float32)
 
     return image
-
-
-def print_channels(step, image):
-
-    channel_map = {0: 'BLUE', 1: 'GREEN', 2: 'RED'}
-    print(step)
-
-    for channel in [0, 1, 2]:
-        max = np.max(image[0, :, :, channel])
-        min = np.min(image[0, :, :, channel])
-        avg = np.mean(image[0, :, :, channel])
-        print(f'CHANNEL: {channel_map[channel]}; MAX: {max}; MIN: {min}; AVG: {avg}')
 
 
 def preprocess_image(image_path: Path, target_size: tuple) -> tf.Variable:
@@ -284,11 +289,11 @@ def postprocess_image(image: tf.Tensor, original_shape: tuple) -> np.array:
     print(f'\n Postprocessing result image from {image.shape} to {original_shape}')
     image = image.reshape(image.shape[1:])  # drop batch dimension
 
-    # INVERTING VGG19 PREPROCESSING
-    image[:, :, 0] += 103.939
-    image[:, :, 1] += 116.779
-    image[:, :, 2] += 123.68
-    image = image[:, :, ::-1]
+    # # INVERTING VGG19 PREPROCESSING
+    # image[:, :, 0] += 103.939
+    # image[:, :, 1] += 116.779
+    # image[:, :, 2] += 123.68
+    # image = image[:, :, ::-1]
 
     image = tf.image.resize(image, original_shape[0:-1]).numpy()
     image = normalize_image(image) # normalize values to [0, 1]
