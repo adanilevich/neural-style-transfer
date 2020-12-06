@@ -28,6 +28,9 @@ class NSTModel():
                 'block5_conv1'
             ]
 
+        self.content_layers = content_layers
+        self.style_layers = style_layers
+
         content_outputs = []
         style_outputs = []
 
