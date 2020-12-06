@@ -27,13 +27,15 @@ class NSTGui:
         # IMAGE SELECTION
 
         self._content_selection = widgets.Dropdown(
-            options = [f.name for f in image_path.iterdir() if f.is_file()],
+            options = [f.name for f in image_path.iterdir()
+                       if f.is_file() and 'content' in f.name],
             value = self._content_image_path.name,
             description = 'Content'
         )
 
         self._style_selection = widgets.Dropdown(
-            options = [f.name for f in image_path.iterdir() if f.is_file()],
+            options = [f.name for f in image_path.iterdir()
+                       if f.is_file() and 'style' in f.name],
             value = self._style_image_path.name,
             description = 'Style'
         )
