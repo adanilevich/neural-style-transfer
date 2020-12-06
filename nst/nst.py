@@ -75,7 +75,7 @@ def calc_loss(content_outputs: list, style_outputs: list, result_outputs: list,
     Args:
         content_outputs: result of model.process(content_image)
         style_outputs: result of model.process(stlyle_image)
-        result_ouputs: result of model.process(result_image)
+        result_outputs: result of model.process(result_image)
         weights: dict with keys 'content_weight', 'style_weight'
 
     Returns:
@@ -162,7 +162,7 @@ def generate_nst(content_path: Path, style_path: Path, model: NSTModel,
 
         losses.append(loss)
         optimizer.apply_gradients([(grads, result)])
-        result.assign(tf.clip_by_value(result, clip_value_min=-115.0, clip_value_max=140.0))
+        result = mid_process_image(result, clip_only=False)
 
     trained_image = postprocess_image(result, original_shape)
 
@@ -177,6 +177,33 @@ def normalize_image(image):
     max_ = np.max(image)
     min_ = np.min(image)
     image = (image - min_) / (max_ - min_)
+
+    return image
+
+
+def mid_process_image(image: tf.Variable, clip_only=False):
+    """
+    Used in each training step to adapt image to VGG specification before putting it
+    through model processing
+
+    Args:
+        image: tf.Variable
+        clip_only: if True, only processing is clipping of image values to [-115, 140]
+
+    Returns:
+        image: tf. Variable
+    """
+
+    if clip_only:
+        image.assign(tf.clip_by_value(image, clip_value_min=-115.0, clip_value_max=140.0))
+    else:
+        image = image.numpy()
+        image = normalize_image(image) * 255
+        image[:, :, :, 0] -= 103.939
+        image[:, :, :, 1] -= 116.779
+        image[:, :, :, 2] -= 123.68
+
+        image = tf.Variable(image)
 
     return image
 
