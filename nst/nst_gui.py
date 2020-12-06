@@ -45,7 +45,7 @@ class NSTGui:
 
         # TRAINING PARAMETERS
         self._epoch_selection = widgets.BoundedIntText(
-            value=100,
+            value=1000,
             min=10,
             max=10000,
             step=10,
