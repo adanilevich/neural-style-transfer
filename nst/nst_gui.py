@@ -45,7 +45,7 @@ class NSTGui:
         )
 
         self._lr_selection = widgets.BoundedFloatText(
-            value=0.02,
+            value=1,
             min=0.0001,
             max=10,
             description='LR:',
@@ -53,7 +53,7 @@ class NSTGui:
         )
 
         self._content_weight_selection = widgets.BoundedFloatText(
-            value=1000,
+            value=0.001,
             min=0.0001,
             max=10000,
             description='Content Weight:',
@@ -61,7 +61,7 @@ class NSTGui:
         )
 
         self._style_weight_selection = widgets.BoundedFloatText(
-            value=1,
+            value=1000,
             min=0.0001,
             max=10000,
             description='Style Weight:',
