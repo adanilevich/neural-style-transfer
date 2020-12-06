@@ -53,7 +53,7 @@ class NSTGui:
         )
 
         self._lr_selection = widgets.BoundedFloatText(
-            value=0.5,
+            value=0.02,
             min=0.0001,
             max=10,
             description='LR:',
@@ -61,7 +61,7 @@ class NSTGui:
         )
 
         self._content_weight_selection = widgets.BoundedFloatText(
-            value=1,
+            value=10000,
             min=0.0001,
             max=10000,
             description='Content Weight:',
@@ -69,7 +69,7 @@ class NSTGui:
         )
 
         self._style_weight_selection = widgets.BoundedFloatText(
-            value=100,
+            value=0.01,
             min=0.0001,
             max=10000,
             description='Style Weight:',
@@ -86,6 +86,27 @@ class NSTGui:
             bar_style='',
             orientation='horizontal',
             layout=widgets.Layout(width='97%')
+        )
+
+        self._save_results_button = widgets.Button(description='Save Parameters')
+        self._save_results_button.on_click(self._click_save_parameters)
+
+        # LAYER SELECTION
+        layer_options = [
+            'block1_conv1',
+            'block2_conv1',
+            'block3_conv1',
+            'block4_conv1',
+            'block5_conv1',
+            'block5_conv2',
+        ]
+        self._content_layer_selection  = widgets.VBox(
+            [widgets.Checkbox(value=False, description=val) for val in layer_options]
+        )
+        self._content_layer_selection.children[-1].value = True
+
+        self._style_layer_selection  = widgets.VBox(
+            [widgets.Checkbox(value=True, description=val) for val in layer_options]
         )
 
         # CREATE OUTPUTS
@@ -139,8 +160,14 @@ class NSTGui:
 
         self._progress_bar.max = self._epoch_selection.value
 
+        content_layers = [l.description for l in self._content_layer_selection.children
+                          if l.value]
+
+        style_layers = [l.description for l in self._style_layer_selection.children
+                          if l.value]
+
         if self._nst_model is None:
-            self._nst_model = NSTModel()
+            self._nst_model = NSTModel(content_layers, style_layers)
 
         generator_parameters = {
             'epochs': self._epoch_selection.value,
@@ -174,6 +201,30 @@ class NSTGui:
 
         self._plot_images()
 
+    def _click_save_parameters(self, b: widgets.Button):
+        """
+        Saves selected parameters to 'saved_parameters.csv'
+        """
+        content_layers = [l.description for l in self._content_layer_selection.children
+                          if l.value]
+
+        style_layers = [l.description for l in self._style_layer_selection.children
+                          if l.value]
+
+        parameters = [
+            f'content: {self._content_image_path.name}',
+            f'style: {self._style_image_path.name}',
+            f'epoch: {self._epoch_selection.value}',
+            f'lr: {self._lr_selection.value}',
+            f'content_weight: {self._content_weight_selection.value}',
+            f'style_weight: {self._style_weight_selection.value}',
+            f'content_layers: {content_layers}',
+            f'style_layers: {style_layers}',
+        ]
+
+        with open('saved_parameters.txt', 'a') as file:
+            file.write(f"{'; '.join(parameters)}\n")
+
     def _compose_gui(self) -> widgets.Box:
         """
         Composes all widgets and returns final GUI.
@@ -202,8 +253,8 @@ class NSTGui:
             ], layout=layout_padding),
             widgets.VBox([
                 self._display_selection_button,
-                self._generate_button,
-                self._progress_bar
+#                self._generate_button,
+#                self._progress_bar
             ], layout=layout_padding),
         ], layout=layout_boxes)
         image_selection.layout.width = '80%'
@@ -215,9 +266,26 @@ class NSTGui:
             self._style_weight_selection
         ], layout=layout_boxes)
 
-        inputs = widgets.HBox([
-            image_selection,
-            training_selection,
+
+        layer_selection = widgets.HBox([
+            widgets.Label('Content Layers:'),
+            self._content_layer_selection,
+            widgets.Label('Style Layers:'),
+            self._style_layer_selection,
+            widgets.VBox([
+                self._generate_button,
+                self._progress_bar,
+                self._save_results_button
+            ])
+        ], layout=layout_boxes)
+
+
+        inputs = widgets.VBox([
+            widgets.HBox([
+                image_selection,
+                training_selection,
+            ]),
+            layer_selection
         ])
 
         # OUTPUT BOXES
