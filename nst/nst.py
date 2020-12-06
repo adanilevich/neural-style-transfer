@@ -67,41 +67,41 @@ class NSTModel:
         return contents, styles
 
 
-def calc_total_loss(content_contents: list, style_styles: list,
-                    result_contents: list, result_styles: list,
-                    weights: dict) -> tf.Tensor:
+def calc_loss(content_outputs: list, style_outputs: list, result_outputs: list,
+              weights: dict) -> tf.Tensor:
     """
     Caculates total loss as weighted sum of content loss and style loss
 
     Args:
-        content_contents: List of tf.Tensors: list of content layer ouptuts
-            of content image processed through model
-        style_styles: List of tf.Tensors: list of style layer ouptuts
-            of style image processed through model
-        result_contents: List of tf.Tensors: list of content layer ouptuts
-            of result image processed through model
-        result_styles: List of tf.Tensors: list of style layer ouptuts
-            of result image processed through model
+        content_outputs: result of model.process(content_image)
+        style_outputs: result of model.process(stlyle_image)
+        result_ouputs: result of model.process(result_image)
         weights: dict with keys 'content_weight', 'style_weight'
 
     Returns:
         loss: style_loss
     """
 
+    # UNPACKING
+    content_contents = content_outputs[0]
+    style_styles = style_outputs[1]
+    result_contents = result_outputs[0]
+    result_styles = result_outputs[1]
     content_weight = weights['content_weight']
     style_weight = weights['style_weight']
 
+    # CONTENT LOSS
     content_losses = [tf.reduce_mean((cont - res) ** 2)
                       for cont, res in zip(content_contents, result_contents)]
     content_loss = tf.add_n(content_losses)
     content_loss *= content_weight / len(content_losses)
 
+    # STYLE LOSS
     def calc_style(style_layer_output: tf.Tensor) -> tf.Tensor:
         shape = tf.shape(style_layer_output)
         style = tf.linalg.einsum('ijkl,ijkm->ilm', style_layer_output, style_layer_output)
-        num_locations = tf.cast(shape[1] * shape[2], tf.float32)
-
-        return style / num_locations
+        num_locations = tf.cast(shape[1] * shape[2] * shape[3], tf.float32)
+        return style / (2 * num_locations)
 
     style_style_values = [calc_style(slo) for slo in style_styles]
     result_style_values = [calc_style(slo) for slo in result_styles]
@@ -156,16 +156,7 @@ def generate_nst(content_path: Path, style_path: Path, model: NSTModel,
         with tf.GradientTape() as tape:
 
             result_outputs = model.process(result)
-
-            loss_function_parameters = {
-                'content_contents': content_outputs[0],
-                'style_styles': style_outputs[1],
-                'result_contents': result_outputs[0],
-                'result_styles': result_outputs[1],
-                'weights': weights
-            }
-
-            loss = calc_total_loss(**loss_function_parameters)
+            loss = calc_loss(content_outputs, style_outputs, result_outputs, weights)
 
         grads = tape.gradient(loss, result)
 
