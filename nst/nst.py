@@ -1,8 +1,12 @@
+from pathlib import Path
 import tensorflow as tf
 from tensorflow.keras.applications import VGG19
-from tensorflow.keras.preprocessing.image import img_to_array
+from tensorflow.keras.applications.vgg19 import preprocess_input
 import numpy as np
-import PIL.Image
+import matplotlib.image as mpimg
+
+
+# from tensorflow.keras.preprocessing.image import img_to_array
 
 
 class NSTModel:
@@ -87,51 +91,39 @@ def calc_total_loss(content_contents: list, style_styles: list,
     content_weight = weights['content_weight']
     style_weight = weights['style_weight']
 
-    content_losses = [tf.reduce_mean((cont - res)**2)
+    content_losses = [tf.reduce_mean((cont - res) ** 2)
                       for cont, res in zip(content_contents, result_contents)]
     content_loss = tf.add_n(content_losses)
-    content_loss *= content_weight/len(content_losses)
+    content_loss *= content_weight / len(content_losses)
 
     def calc_style(style_layer_output: tf.Tensor) -> tf.Tensor:
         shape = tf.shape(style_layer_output)
         style = tf.linalg.einsum('ijkl,ijkm->ilm', style_layer_output, style_layer_output)
         num_locations = tf.cast(shape[1] * shape[2], tf.float32)
 
-        return style/(num_locations)
+        return style / num_locations
 
     style_style_values = [calc_style(slo) for slo in style_styles]
     result_style_values = [calc_style(slo) for slo in result_styles]
 
-    style_losses = [tf.reduce_mean((st - res)**2)
+    style_losses = [tf.reduce_mean((st - res) ** 2)
                     for st, res in zip(style_style_values, result_style_values)]
     style_loss = tf.add_n(style_losses)
-    style_loss *= style_weight/ len(style_losses)
+    style_loss *= style_weight / len(style_losses)
 
     total_loss = style_loss + content_loss
 
     return total_loss
 
 
-def normalize_image(image):
-    """
-    Rescales np array to range 0..1
-    """
-
-    max_ = np.max(image)
-    min_ = np.min(image)
-    image = (image - min_) / (max_ - min_)
-
-    return image
-
-
-def generate_nst(content: np.array, style: np.array, model: NSTModel,
+def generate_nst(content_path: Path, style_path: Path, model: NSTModel,
                  epochs: int, lr: float, weights: dict, callback=None) -> list:
     """
     Performs optimization to return generated image
 
     Args:
-        content: content image before processing through model
-        style: style image before processing through model
+        content_path: path to content image
+        style_path: path to style image
         model: keras model for NST
         epochs: number of fit iterations
         lr: learning rate (approx. 1)
@@ -144,12 +136,12 @@ def generate_nst(content: np.array, style: np.array, model: NSTModel,
         losses: list of loss values for each training iteration
     """
 
-    original_shape = content.shape
+    original_shape = mpimg.imread(content_path).shape
     model_input_size = model.input_shape[0:-1]
 
-    result = preprocess_image(content, model_input_size)
-    content = preprocess_image(content, model_input_size)
-    style = preprocess_image(style, model_input_size)
+    result = preprocess_image(content_path, model_input_size)
+    content = preprocess_image(content_path, model_input_size)
+    style = preprocess_image(style_path, model_input_size)
 
     optimizer = tf.keras.optimizers.Adam(lr=lr, beta_1=0.99, epsilon=1e-1)
     losses = []
@@ -159,9 +151,7 @@ def generate_nst(content: np.array, style: np.array, model: NSTModel,
 
     for step in range(epochs):
 
-        if step % (epochs / 100) == 0:
-            callback.value = step
-            callback.description = f'{int(100.0 * (step + 1) / epochs)}%'
+        callback.value = step + 1
 
         with tf.GradientTape() as tape:
 
@@ -181,30 +171,72 @@ def generate_nst(content: np.array, style: np.array, model: NSTModel,
 
         losses.append(loss)
         optimizer.apply_gradients([(grads, result)])
-        result.assign(tf.clip_by_value(result, clip_value_min=0.0, clip_value_max=1.0))
+        # result.assign(tf.clip_by_value(result, clip_value_min=0.0, clip_value_max=1.0))
 
-    trained_image = result.numpy().reshape(model.input_shape)
-    trained_image = tf.image.resize(trained_image, original_shape[0:-1]).numpy()
-    trained_image = normalize_image(trained_image)
+    trained_image = postprocess_image(result, original_shape)
 
     return trained_image, losses
 
 
-def preprocess_image(image: np.array, target_size: tuple) -> tf.Variable:
-    #image = preprocess_input(image)
-    image = image/255.0
-    image = tf.image.resize(image, target_size)
-    image = image.numpy()
-    image = image[np.newaxis,...]
+def normalize_image(image):
+    """
+    Rescales np array to range 0..1
+    """
+
+    max_ = np.max(image)
+    min_ = np.min(image)
+    image = (image - min_) / (max_ - min_)
+
+    return image
+
+
+def preprocess_image(image_path: Path, target_size: tuple) -> tf.Variable:
+    """
+    Transformns the image to VGG19 compatible format. In particular, image is resized,
+    a batch dimension is added, channel values are normalized and RGB is converted to BGR
+    Args:
+        image_path: path to image
+        target_size: input shape of VGG19, (224, 224, 3)
+
+    Returns:
+        image: image as tf.Variable for VGG19
+    """
+
+    image = mpimg.imread(image_path)  # read to numpy array
+    print(f'Preprocessing image {image_path.name} from {image.shape} to {target_size}')
+    image  = tf.image.resize(image, target_size)
+    image = image[np.newaxis, ...]  # add batch dimension
+    image = preprocess_input(image)
     image = tf.Variable(image, dtype=tf.float32)
 
     return image
 
 
-def tensor_to_image(tensor):
-  tensor = tensor*255
-  tensor = np.array(tensor, dtype=np.uint8)
-  if np.ndim(tensor)>3:
-    assert tensor.shape[0] == 1
-    tensor = tensor[0]
-  return PIL.Image.fromarray(tensor)
+def postprocess_image(image: tf.Tensor, original_shape: tuple) -> np.array:
+    """
+    Transforms created image from tf.Tensor to np. array. Image is resized to original
+    size, batch dimension is removed, also VGG preprocessing is reverted. Output image
+    is normalized to values [0, 1].
+
+    Args:
+        image: created image as tf.Tensor
+        original_shape: original shape of the image to resize to
+
+    Returns:
+        image: image as np.array with values in [0, 1] and size of original image
+    """
+
+    image = image.numpy()
+    print(f'\n Postprocessing result image from {image.shape} to {original_shape}')
+    image = image.reshape(image.shape[1:])  # drop batch dimension
+
+    # INVERTING VGG19 PREPROCESSING
+    image[:, :, 0] += 103.939
+    image[:, :, 1] += 116.779
+    image[:, :, 2] += 123.68
+    image = image[:, :, ::-1]
+
+    image = tf.image.resize(image, original_shape[0:-1]).numpy()
+    image = normalize_image(image) # normalize values to [0, 1]
+
+    return image

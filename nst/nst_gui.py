@@ -15,11 +15,12 @@ class NSTGui:
 
     def __init__(self):
         # DEFAULT VALUES
-        self._content_raw = None
-        self._result_raw = None
-        self._style_raw = None
-        self._content_image_path = Path('images/content_dog.jpg')
-        self._style_image_path = Path('images/style_kandinsky_7.jpg')
+        parent_path = Path(__file__).parent.parent
+        self._content_image_path = parent_path/'images/content_dog.jpg'
+        self._style_image_path = parent_path/'images/style_kandinsky_7.jpg'
+        self._content = mpimg.imread(self._content_image_path)
+        self._style = mpimg.imread(self._style_image_path)
+        self._result = mpimg.imread(self._content_image_path)
         self._nst_model = None
 
         # IMAGE SELECTION
@@ -86,34 +87,46 @@ class NSTGui:
         # COMPOSE GUI
         self._gui = self._compose_gui()
 
-    def _click_select_images_button(self, b: widgets.Button):
-        parent_path = Path(__file__).parent.parent
-        self._content_image_path = parent_path/r'images/content_dog.jpg'
-        self._style_image_path = parent_path/r'images/style_kandinsky_7.jpg'
+        # PLOT DEFAULTS
+        self._plot_images()
 
-        self._selected_content_image.value = self._content_image_path.name
-        self._selected_style_image.value = self._style_image_path.name
+    def _plot_images(self):
+        """
+        Plots provided images to image ouput. Using pyplot
 
-        self._content_raw = mpimg.imread(self._content_image_path)
-        self._style_raw = mpimg.imread(self._style_image_path)
-        self._result_raw = mpimg.imread(self._content_image_path)
-
+        Args:
+            content, style, result: np.array of shape (width, len, channels)
+        """
         self._image_output.clear_output()
 
         with self._image_output:
+
             fig, axes = plt.subplots(1, 3, figsize=(30, 30))
-            axes[0].imshow(self._content_raw)
+
+            axes[0].imshow(self._content)
             axes[0].set_title('Content Image\n', fontsize=15)
             axes[0].axis('off')  # disable axis lines, ticks, labels
-            axes[1].imshow(self._style_raw)
+
+            axes[1].imshow(self._style)
             axes[1].set_title('Style Image \n', fontsize=15)
             axes[1].axis('off')  # disable axis lines, ticks, labels
-            axes[2].imshow(self._result_raw)
+
+            axes[2].imshow(self._result)
             axes[2].set_title('Result Image \n', fontsize=15)
             axes[2].axis('off')  # disable axis lines, ticks, labels
+
             plt.show()
 
+    def _click_select_images_button(self, b: widgets.Button):
+
+        self._text_output.clear_output()
+
+        with self._text_output:
+            print('Image selection currently disabled')
+
     def _click_generate(self, b: widgets.Button):
+
+        self._progress_bar.max = self._epoch_selection.value
 
         if self._nst_model is None:
             self._nst_model = NSTModel()
@@ -121,8 +134,8 @@ class NSTGui:
         generator_parameters = {
             'epochs': self._epoch_selection.value,
             'model': self._nst_model,
-            'content': self._content_raw,
-            'style': self._style_raw,
+            'content_path': self._content_image_path,
+            'style_path': self._style_image_path,
             'lr': self._lr_selection.value,
             'weights': {
                 'content_weight': self._content_weight_selection.value,
@@ -137,29 +150,18 @@ class NSTGui:
                 k: v for k, v in generator_parameters.items()
                 if k not in ['content', 'style', 'model', 'callback']
             }
-            print('Starting generation with following parameters:')
+            print('Starting generation with following parameters:\n')
             [print(f'{k}:', v) for k, v in print_parameters.items()]
-            print('Using content layers:', self._nst_model.content_layers)
-            print('Using style layers:', self._nst_model.style_layers)
+            print('content layers:', self._nst_model.content_layers)
+            print('style layers:', self._nst_model.style_layers)
+            print('\n')
 
-            self._result_raw, self._losses = generate_nst(**generator_parameters)
+            self._result, losses_ = generate_nst(**generator_parameters)
 
-            plt.plot(self._losses)
+            plt.plot(losses_)
             plt.show()
 
-        with self._image_output:
-            self._image_output.clear_output()
-            fig, axes = plt.subplots(1, 3, figsize=(30, 30))
-            axes[0].imshow(self._content_raw)
-            axes[0].set_title('Content Image\n', fontsize=15)
-            axes[0].axis('off')  # disable axis lines, ticks, labels
-            axes[1].imshow(self._style_raw)
-            axes[1].set_title('Style Image \n', fontsize=15)
-            axes[1].axis('off')  # disable axis lines, ticks, labels
-            axes[2].imshow(self._result_raw)
-            axes[2].set_title('Result Image \n', fontsize=15)
-            axes[2].axis('off')  # disable axis lines, ticks, labels
-            plt.show()
+        self._plot_images()
 
     def _compose_gui(self) -> widgets.Box:
         """
