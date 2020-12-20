@@ -134,6 +134,9 @@ def calc_loss(content_outputs: dict, style_outputs: dict, result_outputs: dict,
     content_weight = weights['content_weight']
     style_weight = weights['style_weight']
 
+    print('Result style shape:', result_styles[0].numpy().shape)
+    print('Style style shape:', style_styles[0].numpy().shape)
+
     # CONTENT LOSS
     content_losses = [tf.reduce_mean((cont - res)** 2)
                       for cont, res in zip(content_contents, result_contents)]
@@ -195,9 +198,9 @@ def generate_nst(content_path: Path, style_path: Path, model: NSTModel,
         optimizer.apply_gradients([(grads, result)])
         #result.assign(tf.clip_by_value(result, clip_value_min=0, clip_value_max=1))
         result = tf.Variable(normalize_image(result.numpy()), trainable=True, dtype=tf.float32)
-        print('STEP:', np.max(result.numpy()), np.min(result.numpy()), np.mean(result.numpy()),
-              np.mean(result.numpy()[0, :, :, 0]), np.mean(result.numpy()[0, :, :, 1]),
-              np.mean(result.numpy()[0, :, :, 2]))
+        # print('STEP:', np.max(result.numpy()), np.min(result.numpy()), np.mean(result.numpy()),
+        #       np.mean(result.numpy()[0, :, :, 0]), np.mean(result.numpy()[0, :, :, 1]),
+        #       np.mean(result.numpy()[0, :, :, 2]))
 
     trained_image = postprocess_image(result, original_shape)
 
