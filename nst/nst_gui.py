@@ -115,7 +115,8 @@ class NSTGui:
         self._pooling_selection = widgets.RadioButtons(
             value='MaxPooling',
             options=['MaxPooling', 'AvgPooling'],
-            description='Poolig Layers'
+            description='Poolig Layers',
+            layout={'width': 'max-content'}
         )
 
         # CREATE OUTPUTS
@@ -175,7 +176,7 @@ class NSTGui:
         style_layers = [l.description for l in self._style_layer_selection.children
                           if l.value]
 
-        pooling = self._pooling_selection.value
+        pooling = 'AvgPooling'
 
         self._nst_model = NSTModel(content_layers, style_layers, pooling)
 
@@ -283,7 +284,7 @@ class NSTGui:
             self._content_layer_selection,
             widgets.Label('Style Layers:'),
             self._style_layer_selection,
-            self._pooling_selection,
+            #self._pooling_selection,
             widgets.VBox([
                 self._generate_button,
                 self._progress_bar,
