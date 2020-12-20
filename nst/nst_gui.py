@@ -94,23 +94,30 @@ class NSTGui:
         self._save_results_button.on_click(self._click_save_parameters)
 
         # LAYER SELECTION
-        layer_options = [
+        content_options = [
+            'block1_conv2',
+            'block2_conv2',
+            'block3_conv2',
+            'block4_conv2',
+            'block5_conv2',
+        ]
+
+        style_options = [
             'block1_conv1',
             'block2_conv1',
             'block3_conv1',
             'block4_conv1',
             'block5_conv1',
-            'block5_conv2',
         ]
+
         self._content_layer_selection  = widgets.VBox(
-            [widgets.Checkbox(value=False, description=val) for val in layer_options]
+            [widgets.Checkbox(value=False, description=val) for val in content_options]
         )
         self._content_layer_selection.children[-1].value = True
 
         self._style_layer_selection  = widgets.VBox(
-            [widgets.Checkbox(value=True, description=val) for val in layer_options]
+            [widgets.Checkbox(value=True, description=val) for val in style_options]
         )
-        self._style_layer_selection.children[-1].value = False
 
         self._pooling_selection = widgets.RadioButtons(
             value='MaxPooling',

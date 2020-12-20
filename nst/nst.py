@@ -9,7 +9,7 @@ import matplotlib.image as mpimg
 # from tensorflow.keras.preprocessing.image import img_to_array
 
 #TODO: use correct style layer weights -- see paper
-#TODO: replace MaxPool2D layers with AveragePool2D - see paper
+#TODO: replace clipping by scaling for smooth gradients
 class NSTModel():
 
     def __init__(self, content_layers: list = None, style_layers: list = None,
@@ -19,11 +19,11 @@ class NSTModel():
         base_model.trainable = False
 
         if pooling == 'AvgPooling':
-            print('Replacing MaxPooling by AvgPooling')
+            #print('Replacing MaxPooling by AvgPooling')
             base_model = replace_max_pooling(base_model)
 
         if content_layers is None:
-            content_layers = ['block5_conv2']
+            content_layers = ['block4_conv2']
 
         if style_layers is None:
             style_layers = [
@@ -54,12 +54,21 @@ class NSTModel():
 
         self.nst_model = model
 
-    def process(self, image: tf.Variable) -> tf.Tensor:
+    def process(self, image: tf.Variable) -> dict:
+        """
+        Processes input image through neural network and returns style and content outputs
 
-        # THIS IS EXPERIMENTAL:
-        image = image*255.0
+        Args:
+            image: input image of shape (1, x, y, 3) and values in range [0, 1]
+
+        Returns:
+            result: dict with keys 'content', 'result', containing contents and styles
+                of the image for each chosen layer - as tf.Tensor
+        """
+
+
+        image = image * 255.0
         image = preprocess_input(image)
-        # END EXPERIMENTAL
 
         outputs = self.nst_model(image)
         contents = outputs['content']
@@ -160,9 +169,9 @@ def generate_nst(content_path: Path, style_path: Path, model: NSTModel,
 
     original_shape = mpimg.imread(content_path).shape
 
-    content = test_preprocess_image(content_path)
-    style = test_preprocess_image(style_path)
-    result = test_preprocess_image(content_path)
+    content = preprocess_image(content_path)
+    style = preprocess_image(style_path)
+    result = preprocess_image(content_path)
     result = tf.Variable(result)
 
     optimizer = tf.keras.optimizers.Adam(lr=lr, beta_1=0.99, epsilon=1e-1)
@@ -184,15 +193,15 @@ def generate_nst(content_path: Path, style_path: Path, model: NSTModel,
 
         losses.append(loss)
         optimizer.apply_gradients([(grads, result)])
-        result.assign(tf.clip_by_value(result, clip_value_min=0, clip_value_max=1))
-        #result = mid_process_image(result, clip_only=True)
+        #result.assign(tf.clip_by_value(result, clip_value_min=0, clip_value_max=1))
+        result = tf.Variable(normalize_image(result.numpy()), trainable=True, dtype=tf.float32)
 
     trained_image = postprocess_image(result, original_shape)
 
     return trained_image, losses
 
 
-def test_preprocess_image(image_path):
+def preprocess_image(image_path) -> tf.Tensor:
 
 
     image = mpimg.imread(image_path).astype(np.float32)  # read to numpy array
@@ -209,7 +218,7 @@ def test_preprocess_image(image_path):
     return image
 
 
-def normalize_image(image):
+def normalize_image(image: np.array) -> np.array:
     """
     Rescales np array to range 0..1
     """
@@ -241,28 +250,6 @@ def mid_process_image(image: tf.Variable, clip_only=False):
         image = normalize_image(image) * 255.0
         image = image - 128.0
         image = tf.Variable(image, dtype=tf.float32)
-
-    return image
-
-
-def preprocess_image(image_path: Path, target_size: tuple) -> tf.Variable:
-    """
-    Transformns the image to VGG19 compatible format. In particular, image is resized,
-    a batch dimension is added, channel values are normalized and RGB is converted to BGR
-    Args:
-        image_path: path to image
-        target_size: input shape of VGG19, (224, 224, 3)
-
-    Returns:
-        image: image as tf.Variable for VGG19
-    """
-
-    image = mpimg.imread(image_path)  # read to numpy array
-    print(f'Preprocessing image {image_path.name} from {image.shape} to {target_size}')
-    image  = tf.image.resize(image, target_size)
-    image = image[np.newaxis, ...]  # add batch dimension
-    image = preprocess_input(image)
-    image = tf.Variable(image, dtype=tf.float32)
 
     return image
 
