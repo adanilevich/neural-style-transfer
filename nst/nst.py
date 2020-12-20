@@ -195,7 +195,7 @@ def generate_nst(content_path: Path, style_path: Path, model: NSTModel,
         optimizer.apply_gradients([(grads, result)])
         print(np.max(result.numpy()), np.min(result.numpy()))
         #result.assign(tf.clip_by_value(result, clip_value_min=0, clip_value_max=1))
-        #result = tf.Variable(normalize_image(result.numpy()), trainable=True, dtype=tf.float32)
+        result = tf.Variable(normalize_image(result.numpy()), trainable=True, dtype=tf.float32)
 
     trained_image = postprocess_image(result, original_shape)
 
