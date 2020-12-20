@@ -8,13 +8,16 @@ import matplotlib.image as mpimg
 
 # from tensorflow.keras.preprocessing.image import img_to_array
 
-
+#TODO: use correct style layer weights -- see paper
+#TODO: replace MaxPool2D layers with AveragePool2D - see paper
 class NSTModel():
 
     def __init__(self, content_layers: list = None, style_layers: list = None):
 
         base_model = VGG19(include_top=False, weights='imagenet')
         base_model.trainable = False
+
+        #base_model = replace_max_pooling(base_model)
 
         if content_layers is None:
             content_layers = ['block5_conv2']
@@ -61,6 +64,21 @@ class NSTModel():
         styles = [gram_matrix(style_output) for style_output in style_outputs]
 
         return {'content': contents, 'style': styles}
+
+
+def replace_max_pooling(model):
+
+    layers = [l for l in model.layers]
+
+    x = layers[0].output
+    for i in range(1, len(layers)):
+        if 'MaxPooling' in str(layers[i]):
+            x = tf.keras.layers.AveragePooling2D(2)(x)
+        else:
+            x = layers[i](x)
+
+    new_model = tf.keras.Model(inputs=model.inputs, outputs=x)
+    return new_model
 
 
 def gram_matrix(style_layer_output: tf.Tensor) -> tf.Tensor:

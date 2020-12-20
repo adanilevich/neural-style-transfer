@@ -46,7 +46,7 @@ class NSTGui:
         # TRAINING PARAMETERS
         self._epoch_selection = widgets.BoundedIntText(
             value=1000,
-            min=10,
+            min=5,
             max=10000,
             step=10,
             description='Epochs:',
@@ -168,8 +168,7 @@ class NSTGui:
         style_layers = [l.description for l in self._style_layer_selection.children
                           if l.value]
 
-        if self._nst_model is None:
-            self._nst_model = NSTModel(content_layers, style_layers)
+        self._nst_model = NSTModel(content_layers, style_layers)
 
         generator_parameters = {
             'epochs': self._epoch_selection.value,
@@ -186,6 +185,9 @@ class NSTGui:
 
         with self._text_output:
             self._text_output.clear_output()
+            print(content_layers)
+            print(style_layers)
+
             print_parameters = {
                 k: v for k, v in generator_parameters.items()
                 if k not in ['content', 'style', 'model', 'callback']
