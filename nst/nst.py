@@ -219,7 +219,7 @@ def preprocess_image(image_path) -> tf.Tensor:
     image = image/255.0 # scale to [0, 1]
 
     print('DONE PREPROCESSING:', np.max(image), np.min(image), np.mean(image),
-          np.mean(image[:, :, 0]), np.mean(image[:, :, 1]), np.mean(image[:, :, 2]))
+          np.mean(image[0, :, :, 0]), np.mean(image[0, :, :, 1]), np.mean(image[0, :, :, 2]))
 
     return image
 
@@ -263,7 +263,7 @@ def postprocess_image(image: tf.Tensor, original_shape: tuple) -> np.array:
     image = tf.image.resize(image, original_shape[0:-1]).numpy()
     image = normalize_image(image) # normalize values to [0, 1]
     print('DONE POSTPROCESSING:', np.max(image), np.min(image), np.mean(image),
-          np.mean(image[0, :, :, 0]), np.mean(image[0, :, :, 1]), np.mean(image[0, :, :, 2]))
+          np.mean(image[:, :, 0]), np.mean(image[:, :, 1]), np.mean(image[:, :, 2]))
 
 
     return image
