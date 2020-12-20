@@ -12,12 +12,15 @@ import matplotlib.image as mpimg
 #TODO: replace MaxPool2D layers with AveragePool2D - see paper
 class NSTModel():
 
-    def __init__(self, content_layers: list = None, style_layers: list = None):
+    def __init__(self, content_layers: list = None, style_layers: list = None,
+                 pooling: str = 'MaxPooling'):
 
         base_model = VGG19(include_top=False, weights='imagenet')
         base_model.trainable = False
 
-        #base_model = replace_max_pooling(base_model)
+        if pooling == 'AvgPooling':
+            print('Replacing MaxPooling by AvgPooling')
+            base_model = replace_max_pooling(base_model)
 
         if content_layers is None:
             content_layers = ['block5_conv2']

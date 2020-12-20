@@ -78,7 +78,7 @@ class NSTGui:
             style={'description_width': '40%'}
         )
 
-        # GENERATE IMAGE BUTTON
+        # GENERATE IMAGE AND SAVE RESULTS BUTTONS
         self._generate_button = widgets.Button(description='Generate!')
         self._generate_button.on_click(self._click_generate)
         self._progress_bar = widgets.IntProgress(
@@ -109,6 +109,13 @@ class NSTGui:
 
         self._style_layer_selection  = widgets.VBox(
             [widgets.Checkbox(value=True, description=val) for val in layer_options]
+        )
+        self._style_layer_selection.children[-1].value = False
+
+        self._pooling_selection = widgets.RadioButtons(
+            value='MaxPooling',
+            options=['MaxPooling', 'AvgPooling'],
+            description='Poolig Layers'
         )
 
         # CREATE OUTPUTS
@@ -168,7 +175,9 @@ class NSTGui:
         style_layers = [l.description for l in self._style_layer_selection.children
                           if l.value]
 
-        self._nst_model = NSTModel(content_layers, style_layers)
+        pooling = self._pooling_selection.value
+
+        self._nst_model = NSTModel(content_layers, style_layers, pooling)
 
         generator_parameters = {
             'epochs': self._epoch_selection.value,
@@ -257,8 +266,6 @@ class NSTGui:
             ], layout=layout_padding),
             widgets.VBox([
                 self._display_selection_button,
-#                self._generate_button,
-#                self._progress_bar
             ], layout=layout_padding),
         ], layout=layout_boxes)
         image_selection.layout.width = '80%'
@@ -276,6 +283,7 @@ class NSTGui:
             self._content_layer_selection,
             widgets.Label('Style Layers:'),
             self._style_layer_selection,
+            self._pooling_selection,
             widgets.VBox([
                 self._generate_button,
                 self._progress_bar,
