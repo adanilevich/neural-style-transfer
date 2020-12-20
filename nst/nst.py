@@ -9,7 +9,8 @@ import matplotlib.image as mpimg
 # from tensorflow.keras.preprocessing.image import img_to_array
 
 #TODO: use correct style layer weights -- see paper
-#TODO: replace clipping by scaling for smooth gradients
+#TODO: replace loss by l1
+#TODO: start from random
 class NSTModel():
 
     def __init__(self, content_layers: list = None, style_layers: list = None,
@@ -127,21 +128,23 @@ def calc_loss(content_outputs: dict, style_outputs: dict, result_outputs: dict,
     """
 
     # UNPACKING
-    content_contents = content_outputs['content']
-    style_styles = style_outputs['style']
-    result_contents = result_outputs['content']
-    result_styles = result_outputs['style']
+    content_c = content_outputs['content']
+    style_s = style_outputs['style']
+    result_c = result_outputs['content']
+    result_s = result_outputs['style']
     content_weight = weights['content_weight']
     style_weight = weights['style_weight']
 
+    mean = tf.reduce_mean
+    l1 = tf.abs # mean absolute error
+    #l2 = lambda x: x**2 # mean square error
+
     # CONTENT LOSS
-    content_losses = [tf.reduce_mean((cont - res)** 2)
-                      for cont, res in zip(content_contents, result_contents)]
+    content_losses = [mean(l1(cont - res)) for cont, res in zip(content_c, result_c)]
     content_loss = tf.add_n(content_losses) * content_weight / len(content_losses)
 
     # STYLE LOSS
-    style_losses = [tf.reduce_mean((st - res) ** 2)
-                    for st, res in zip(style_styles, result_styles)]
+    style_losses = [mean(l1(st - res)) for st, res in zip(style_s, result_s)]
     style_loss = tf.add_n(style_losses) * style_weight / len(style_losses)
 
     return style_loss + content_loss

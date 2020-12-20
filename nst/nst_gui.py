@@ -71,7 +71,7 @@ class NSTGui:
         )
 
         self._style_weight_selection = widgets.BoundedFloatText(
-            value=0.0,
+            value=0.01,
             min=0.0,
             max=10000,
             description='Style Weight:',
