@@ -67,7 +67,7 @@ class NSTModel():
         """
 
 
-        #image = image * 255.0
+        image = image * 255.0
         image = preprocess_input(image)
 
         outputs = self.nst_model(image)
@@ -213,7 +213,7 @@ def preprocess_image(image_path) -> tf.Tensor:
     print(f'Preprocessing image {image_path.name} from {image.shape} to {target_shape}')
     image  = tf.image.resize(image, target_shape[:-1])
     image = image[np.newaxis, ...]  # add batch dimension
-    #image = image/255.0 # scale to [0, 1]
+    image = image/255.0 # scale to [0, 1]
 
     return image
 
