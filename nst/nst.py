@@ -67,7 +67,7 @@ class NSTModel():
         """
 
 
-        image = image * 255.0
+        #image = image * 255.0
         image = preprocess_input(image)
 
         outputs = self.nst_model(image)
@@ -194,7 +194,7 @@ def generate_nst(content_path: Path, style_path: Path, model: NSTModel,
         losses.append(loss)
         optimizer.apply_gradients([(grads, result)])
         #result.assign(tf.clip_by_value(result, clip_value_min=0, clip_value_max=1))
-        result = tf.Variable(normalize_image(result.numpy()), trainable=True, dtype=tf.float32)
+        #result = tf.Variable(normalize_image(result.numpy()), trainable=True, dtype=tf.float32)
 
     trained_image = postprocess_image(result, original_shape)
 
@@ -213,7 +213,7 @@ def preprocess_image(image_path) -> tf.Tensor:
     print(f'Preprocessing image {image_path.name} from {image.shape} to {target_shape}')
     image  = tf.image.resize(image, target_shape[:-1])
     image = image[np.newaxis, ...]  # add batch dimension
-    image = image/255.0 # scale to [0, 1]
+    #image = image/255.0 # scale to [0, 1]
 
     return image
 
@@ -226,30 +226,6 @@ def normalize_image(image: np.array) -> np.array:
     max_ = np.max(image)
     min_ = np.min(image)
     image = (image - min_) / (max_ - min_)
-
-    return image
-
-
-def mid_process_image(image: tf.Variable, clip_only=False):
-    """
-    Used in each training step to adapt image to VGG specification before putting it
-    through model processing
-
-    Args:
-        image: tf.Variable
-        clip_only: if True, only processing is clipping of image values to [-115, 140]
-
-    Returns:
-        image: tf. Variable
-    """
-
-    if clip_only:
-        image.assign(tf.clip_by_value(image, clip_value_min=-115.0, clip_value_max=140.0))
-    else:
-        image = image.numpy()
-        image = normalize_image(image) * 255.0
-        image = image - 128.0
-        image = tf.Variable(image, dtype=tf.float32)
 
     return image
 

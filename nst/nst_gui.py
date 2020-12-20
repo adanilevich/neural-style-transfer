@@ -113,7 +113,7 @@ class NSTGui:
         self._content_layer_selection  = widgets.VBox(
             [widgets.Checkbox(value=False, description=val) for val in content_options]
         )
-        self._content_layer_selection.children[-1].value = True
+        self._content_layer_selection.children[-3].value = True
 
         self._style_layer_selection  = widgets.VBox(
             [widgets.Checkbox(value=True, description=val) for val in style_options]
