@@ -257,5 +257,6 @@ def postprocess_image(image: tf.Tensor, original_shape: tuple) -> np.array:
 
     image = tf.image.resize(image, original_shape[0:-1]).numpy()
     image = normalize_image(image) # normalize values to [0, 1]
+    print('DONE NORMALIZING:', np.max(image), np.min(image))
 
     return image
