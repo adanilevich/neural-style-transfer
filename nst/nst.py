@@ -216,6 +216,8 @@ def preprocess_image(image_path) -> tf.Tensor:
     image = image[np.newaxis, ...]  # add batch dimension
     image = image/255.0 # scale to [0, 1]
 
+    print('DONE PREPROCESSING:', np.max(image), np.min(image))
+
     return image
 
 
