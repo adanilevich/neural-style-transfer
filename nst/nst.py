@@ -195,7 +195,9 @@ def generate_nst(content_path: Path, style_path: Path, model: NSTModel,
         optimizer.apply_gradients([(grads, result)])
         #result.assign(tf.clip_by_value(result, clip_value_min=0, clip_value_max=1))
         result = tf.Variable(normalize_image(result.numpy()), trainable=True, dtype=tf.float32)
-        print(np.max(result.numpy()), np.min(result.numpy()))
+        print('STEP:', np.max(image), np.min(image), np.mean(image),
+              np.mean(image[0, :, :, 0]), np.mean(image[0, :, :, 1]),
+              np.mean(image[0, :, :, 2]))
 
     trained_image = postprocess_image(result, original_shape)
 
@@ -216,7 +218,8 @@ def preprocess_image(image_path) -> tf.Tensor:
     image = image[np.newaxis, ...]  # add batch dimension
     image = image/255.0 # scale to [0, 1]
 
-    print('DONE PREPROCESSING:', np.max(image), np.min(image), np.mean(image))
+    print('DONE PREPROCESSING:', np.max(image), np.min(image), np.mean(image),
+          np.mean(image[0, :, :, 0]), np.mean(image[0, :, :, 1]), np.mean(image[0, :, :, 2]))
 
     return image
 
@@ -259,6 +262,8 @@ def postprocess_image(image: tf.Tensor, original_shape: tuple) -> np.array:
 
     image = tf.image.resize(image, original_shape[0:-1]).numpy()
     image = normalize_image(image) # normalize values to [0, 1]
-    print('DONE NORMALIZING:', np.max(image), np.min(image), np.mean(image))
+    print('DONE POSTPROCESSING:', np.max(image), np.min(image), np.mean(image),
+          np.mean(image[0, :, :, 0]), np.mean(image[0, :, :, 1]), np.mean(image[0, :, :, 2]))
+
 
     return image
