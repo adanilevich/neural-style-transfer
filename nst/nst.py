@@ -219,7 +219,7 @@ def preprocess_image(image_path) -> tf.Tensor:
     image = image/255.0 # scale to [0, 1]
 
     print('DONE PREPROCESSING:', np.max(image), np.min(image), np.mean(image),
-          np.mean(image[0, :, :, 0]), np.mean(image[0, :, :, 1]), np.mean(image[0, :, :, 2]))
+          np.mean(image[:, :, 0]), np.mean(image[:, :, 1]), np.mean(image[:, :, 2]))
 
     return image
 
