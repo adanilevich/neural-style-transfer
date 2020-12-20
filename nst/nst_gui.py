@@ -64,15 +64,15 @@ class NSTGui:
 
         self._content_weight_selection = widgets.BoundedFloatText(
             value=10000,
-            min=0.0001,
+            min=0.0,
             max=10000,
             description='Content Weight:',
             style={'description_width': '40%'}
         )
 
         self._style_weight_selection = widgets.BoundedFloatText(
-            value=0.01,
-            min=0.0001,
+            value=0.0,
+            min=0.0,
             max=10000,
             description='Style Weight:',
             style={'description_width': '40%'}
