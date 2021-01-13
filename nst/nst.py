@@ -6,37 +6,55 @@ import numpy as np
 import matplotlib.image as mpimg
 
 
-# from tensorflow.keras.preprocessing.image import img_to_array
+# TODO: include style layer weights
+# TODO: start from random
+class NSTModel:
 
-#TODO: use correct style layer weights -- see paper
-#TODO: replace loss by l1
-#TODO: start from random
-class NSTModel():
+    def __init__(self, content_layers: dict = None, style_layers: dict = None,
+                 pooling: str = 'AvgPooling'):
+        """
+        Initializes a neural network which will output content and style of a given image.
+        Weights provided via 'content_layers' and 'style_layers' will be normalized to 1.
 
-    def __init__(self, content_layers: list = None, style_layers: list = None,
-                 pooling: str = 'MaxPooling'):
+        Args:
+            content_layers: dict with {vgg_layer_name: layer weight} for content layers
+            style_layers: dict with {vgg_layer_name: layer weight} for style layers
+            pooling: 'AvgPooling' or 'MaxPooling'. If 'AvgPooling', VGG19 Pooling layers
+                will be replaced with average pooling.
+        """
 
+        # SET DEFAULTS AND NORMALIZE WEIGHT TO 1
+        if content_layers is None:
+            content_layers = {'block4_conv2': 1.0}
+
+        if style_layers is None:
+            style_layers = {
+                'block1_conv1': 1.0,
+                'block2_conv1': 1.0,
+                'block3_conv1': 1.0,
+                'block4_conv1': 1.0,
+                'block5_conv1': 1.0,
+            }
+
+        sum_content_weights = sum([v for k, v in content_layers.items()])
+        sum_style_weights = sum([v for k, v in style_layers.items()])
+        content_layers = {k: v/sum_content_weights for k, v in content_layers.items()
+                          if v != 0.}
+        style_layers = {k: v/sum_style_weights for k, v in style_layers.items()
+                        if v != 0.}
+
+        self.content_layers = content_layers
+        self.style_layers = style_layers
+
+        print(self.content_layers)
+        print(self.style_layers)
+
+        # DOWNLOAD VGG19 AND CREATE NEW MODEL
         base_model = VGG19(include_top=False, weights='imagenet')
         base_model.trainable = False
 
         if pooling == 'AvgPooling':
-            #print('Replacing MaxPooling by AvgPooling')
-            base_model = replace_max_pooling(base_model)
-
-        if content_layers is None:
-            content_layers = ['block4_conv2']
-
-        if style_layers is None:
-            style_layers = [
-                'block1_conv1',
-                'block2_conv1',
-                'block3_conv1',
-                'block4_conv1',
-                'block5_conv1'
-            ]
-
-        self.content_layers = content_layers
-        self.style_layers = style_layers
+            base_model = self._replace_max_pooling(base_model)
 
         content_outputs = []
         style_outputs = []
@@ -57,7 +75,8 @@ class NSTModel():
 
     def process(self, image: tf.Variable) -> dict:
         """
-        Processes input image through neural network and returns style and content outputs
+        Processes input image through neural network and returns style and
+        content outputs, weights by layer weights defined in _init_.
 
         Args:
             image: input image of shape (1, x, y, 3) and values in range [0, 1]
@@ -67,31 +86,35 @@ class NSTModel():
                 of the image for each chosen layer - as tf.Tensor
         """
 
-
+        # PREPROCESS IMAGE WITH VGG PREPROCESSING
         image = image * 255.0
         image = preprocess_input(image)
 
+        # ADD WEIGHTS TO OUTPUTS
         outputs = self.nst_model(image)
-        contents = outputs['content']
-        style_outputs = outputs['style']
-        styles = [gram_matrix(style_output) for style_output in style_outputs]
+        content_weights = [v for k, v in self.content_layers.items()]
+        contents = [w * o for w, o in zip(content_weights, outputs['content'])]
+
+        style_weights = [v for k, v in self.style_layers.items()]
+        styles_gram = [gram_matrix(style_output) for style_output in outputs['style']]
+        styles = [w * s for w, s in zip(style_weights, styles_gram)]
 
         return {'content': contents, 'style': styles}
 
 
-def replace_max_pooling(model):
+    def _replace_max_pooling(self, model):
+        # replaces max pooling with average pooling in model and returns new model
+        layers = [layer for layer in model.layers]
 
-    layers = [l for l in model.layers]
+        x = layers[0].output
+        for i in range(1, len(layers)):
+            if 'MaxPooling' in str(layers[i]):
+                x = tf.keras.layers.AveragePooling2D(2)(x)
+            else:
+                x = layers[i](x)
 
-    x = layers[0].output
-    for i in range(1, len(layers)):
-        if 'MaxPooling' in str(layers[i]):
-            x = tf.keras.layers.AveragePooling2D(2)(x)
-        else:
-            x = layers[i](x)
-
-    new_model = tf.keras.Model(inputs=model.inputs, outputs=x)
-    return new_model
+        new_model = tf.keras.Model(inputs=model.inputs, outputs=x)
+        return new_model
 
 
 def gram_matrix(style_layer_output: tf.Tensor) -> tf.Tensor:
@@ -136,8 +159,8 @@ def calc_loss(content_outputs: dict, style_outputs: dict, result_outputs: dict,
     style_weight = weights['style_weight']
 
     mean = tf.reduce_mean
-    l1 = tf.abs # mean absolute error
-    #l2 = lambda x: x**2 # mean square error
+    l1 = tf.abs  # mean absolute error
+    # l2 = lambda x: x**2 # mean square error
 
     # CONTENT LOSS
     content_losses = [mean(l1(cont - res)) for cont, res in zip(content_c, result_c)]
@@ -170,6 +193,7 @@ def generate_nst(content_path: Path, style_path: Path, model: NSTModel,
         losses: list of loss values for each training iteration
     """
 
+    print("\nStarting image processing...")
     original_shape = mpimg.imread(content_path).shape
 
     content = preprocess_image(content_path)
@@ -183,12 +207,11 @@ def generate_nst(content_path: Path, style_path: Path, model: NSTModel,
     content_outputs = model.process(content)
     style_outputs = model.process(style)
 
+    print('\nStarting image generation...')
     for step in range(epochs):
-
         callback.value = step + 1
 
         with tf.GradientTape() as tape:
-
             result_outputs = model.process(result)
             loss = calc_loss(content_outputs, style_outputs, result_outputs, weights)
 
@@ -197,7 +220,7 @@ def generate_nst(content_path: Path, style_path: Path, model: NSTModel,
         losses.append(loss)
         optimizer.apply_gradients([(grads, result)])
         result.assign(tf.clip_by_value(result, clip_value_min=0, clip_value_max=1))
-        #result = tf.Variable(normalize_image(result.numpy()), trainable=True, dtype=tf.float32)
+        # result = tf.Variable(normalize_image(result.numpy()), trainable=True, dtype=tf.float32)
         # print('STEP:', np.max(result.numpy()), np.min(result.numpy()), np.mean(result.numpy()),
         #       np.mean(result.numpy()[0, :, :, 0]), np.mean(result.numpy()[0, :, :, 1]),
         #       np.mean(result.numpy()[0, :, :, 2]))
@@ -208,21 +231,16 @@ def generate_nst(content_path: Path, style_path: Path, model: NSTModel,
 
 
 def preprocess_image(image_path) -> tf.Tensor:
-
-
     image = mpimg.imread(image_path).astype(np.float32)  # read to numpy array
 
     max_ = np.max(image.shape)
-    scaling_factor = max_/512.0
-    target_shape = [int(i/scaling_factor) for i in image.shape[:-1]] + [3]
+    scaling_factor = max_ / 512.0
+    target_shape = [int(i / scaling_factor) for i in image.shape[:-1]] + [3]
 
-    print(f'Preprocessing image {image_path.name} from {image.shape} to {target_shape}')
-    image  = tf.image.resize(image, target_shape[:-1])
+    print(f'Preprocessing {image_path.name} from {image.shape} to {target_shape}...')
+    image = tf.image.resize(image, target_shape[:-1])
     image = image[np.newaxis, ...]  # add batch dimension
-    image = image/255.0 # scale to [0, 1]
-
-    print('DONE PREPROCESSING:', np.max(image), np.min(image), np.mean(image),
-          np.mean(image[0, :, :, 0]), np.mean(image[0, :, :, 1]), np.mean(image[0, :, :, 2]))
+    image = image / 255.0  # scale to [0, 1]
 
     return image
 
@@ -254,7 +272,7 @@ def postprocess_image(image: tf.Tensor, original_shape: tuple) -> np.array:
     """
 
     image = image.numpy()
-    print(f'\n Postprocessing result image from {image.shape} to {original_shape}')
+    print(f'\nPostprocessing result image from {image.shape} to {original_shape}')
     image = image.reshape(image.shape[1:])  # drop batch dimension
 
     # # INVERTING VGG19 PREPROCESSING
@@ -264,9 +282,6 @@ def postprocess_image(image: tf.Tensor, original_shape: tuple) -> np.array:
     # image = image[:, :, ::-1]
 
     image = tf.image.resize(image, original_shape[0:-1]).numpy()
-    image = normalize_image(image) # normalize values to [0, 1]
-    print('DONE POSTPROCESSING:', np.max(image), np.min(image), np.mean(image),
-          np.mean(image[:, :, 0]), np.mean(image[:, :, 1]), np.mean(image[:, :, 2]))
-
+    image = normalize_image(image)  # normalize values to [0, 1]
 
     return image

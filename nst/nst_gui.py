@@ -3,6 +3,7 @@ from IPython.display import display
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from pathlib import Path
+import numpy as np
 
 from nst.nst import NSTModel, generate_nst
 
@@ -11,36 +12,76 @@ class NSTGui:
     """
     Jupyter GUI for Neural Style Transfer. Supports selection of content and style
     images, training and plotting.
+
+    Methods:
+        draw: displays GUI as ipywidget
     """
+
+    # IMAGE VARIABlES
+    _content_image_path: Path
+    _style_image_path: Path
+    _content: np.array
+    _style: np.array
+    _result: np.array
+
+    # MODEL VARIABLES
+    _nst_model: NSTModel
+
+    # GUI: IMAGE SELECTION
+    _content_selection: widgets.Dropdown
+    _style_selection: widgets.Dropdown
+    _display_selection_button: widgets.Button
+
+    # GUI: TRAINING PARAMETERS
+    _epoch_selection: widgets.BoundedIntText
+    _lr_selection: widgets.BoundedFloatText
+    _content_weight_selection: widgets.BoundedFloatText
+    _style_weight_selection: widgets.BoundedFloatText
+
+    # GUI: MODEL ARCHITECTURE
+    _content_layer_selection: widgets.VBox
+    _style_layer_selection: widgets.VBox
+
+    # GUI: OTHER
+    _generate_button: widgets.Button
+    _progress_bar: widgets.IntProgress
+    _image_output: widgets.Output
+    _text_output: widgets.Output
+    _gui: widgets.VBox
+
 
     def __init__(self):
         # DEFAULT VALUES
         parent_path = Path(__file__).parent.parent
-        image_path = parent_path/'images'
-        self._content_image_path = parent_path/'images/content_dog.jpg'
-        self._style_image_path = parent_path/'images/style_kandinsky_7.jpg'
+        image_path = parent_path / 'images'
+        self._content_image_path = parent_path / 'images/content_dog.jpg'
+        self._style_image_path = parent_path / 'images/style_kandinsky_7.jpg'
         self._content = mpimg.imread(self._content_image_path)
         self._style = mpimg.imread(self._style_image_path)
         self._result = mpimg.imread(self._content_image_path)
         self._nst_model = None
 
         # IMAGE SELECTION
-
         self._content_selection = widgets.Dropdown(
-            options = [f.name for f in image_path.iterdir()
-                       if f.is_file() and 'content' in f.name],
-            value = self._content_image_path.name,
-            description = 'Content'
+            options=[f.name for f in image_path.iterdir()
+                     if f.is_file() and 'content' in f.name],
+            value=self._content_image_path.name,
+            description='Content',
+            layout = widgets.Layout(width='80%')
         )
 
         self._style_selection = widgets.Dropdown(
-            options = [f.name for f in image_path.iterdir()
-                       if f.is_file() and 'style' in f.name],
-            value = self._style_image_path.name,
-            description = 'Style'
+            options=[f.name for f in image_path.iterdir()
+                     if f.is_file() and 'style' in f.name],
+            value=self._style_image_path.name,
+            description='Style',
+            layout=widgets.Layout(width='80%')
         )
 
-        self._display_selection_button = widgets.Button(description='Display')
+        self._display_selection_button = widgets.Button(
+            description='Display',
+            layout=widgets.Layout(width='20%')
+        )
         self._display_selection_button.on_click(self._click_display_selection)
 
         # TRAINING PARAMETERS
@@ -78,21 +119,6 @@ class NSTGui:
             style={'description_width': '40%'}
         )
 
-        # GENERATE IMAGE AND SAVE RESULTS BUTTONS
-        self._generate_button = widgets.Button(description='Generate!')
-        self._generate_button.on_click(self._click_generate)
-        self._progress_bar = widgets.IntProgress(
-            value=0,
-            min=0,
-            max=self._epoch_selection.value,
-            bar_style='',
-            orientation='horizontal',
-            layout=widgets.Layout(width='97%')
-        )
-
-        self._save_results_button = widgets.Button(description='Save Parameters')
-        self._save_results_button.on_click(self._click_save_parameters)
-
         # LAYER SELECTION
         content_options = [
             'block1_conv2',
@@ -110,43 +136,43 @@ class NSTGui:
             'block5_conv1',
         ]
 
-        self._content_layer_selection  = widgets.VBox(
-            [widgets.Checkbox(value=False, description=val) for val in content_options]
-        )
-        self._content_layer_selection.children[-3].value = True
+        self._content_layer_selection = widgets.VBox([
+            widgets.FloatText(layout=widgets.Layout(width='50%'), description=val)
+            for val in content_options
+        ])
+        self._content_layer_selection.children[-3].value = 1
 
-        self._style_layer_selection  = widgets.VBox(
-            [widgets.Checkbox(value=True, description=val) for val in style_options]
+        self._style_layer_selection = widgets.VBox([
+            widgets.FloatText(layout=widgets.Layout(width='50%'), description=v, value=1)
+            for v in style_options
+        ])
+
+        # self._style_layer_selection = widgets.VBox(
+        #     [widgets.Checkbox(value=True, description=val) for val in style_options]
+        # )
+
+        # GENERATE IMAGE AND SAVE RESULTS BUTTONS
+        self._generate_button = widgets.Button(description='Generate!')
+        self._generate_button.on_click(self._click_generate)
+        self._progress_bar = widgets.IntProgress(
+            max=self._epoch_selection.value,
+            layout=widgets.Layout(width='97%')
         )
 
-        self._pooling_selection = widgets.RadioButtons(
-            value='MaxPooling',
-            options=['MaxPooling', 'AvgPooling'],
-            description='Poolig Layers',
-            layout={'width': 'max-content'}
-        )
+        self._save_results_button = widgets.Button(description='Save Parameters')
+        self._save_results_button.on_click(self._click_save_parameters)
 
-        # CREATE OUTPUTS
+        # CREATE OUTPUTS AND COMPOSE GUI
         self._image_output = widgets.Output()
         self._text_output = widgets.Output()
-
-        # COMPOSE GUI
         self._gui = self._compose_gui()
-
-        # PLOT DEFAULTS
         self._plot_images()
 
     def _plot_images(self):
-        """
-        Plots provided images to image ouput. Using pyplot
 
-        Args:
-            content, style, result: np.array of shape (width, len, channels)
-        """
         self._image_output.clear_output()
 
         with self._image_output:
-
             fig, axes = plt.subplots(1, 3, figsize=(30, 30))
 
             axes[0].imshow(self._content)
@@ -166,7 +192,7 @@ class NSTGui:
     def _click_display_selection(self, b: widgets.Button):
 
         parent_path = Path(__file__).parent.parent
-        self._content_image_path = parent_path/f'images/{self._content_selection.value}'
+        self._content_image_path = parent_path / f'images/{self._content_selection.value}'
         self._content = mpimg.imread(self._content_image_path)
         self._style_image_path = parent_path / f'images/{self._style_selection.value}'
         self._style = mpimg.imread(self._style_image_path)
@@ -174,18 +200,14 @@ class NSTGui:
         self._plot_images()
 
     def _click_generate(self, b: widgets.Button):
-
         self._progress_bar.max = self._epoch_selection.value
 
-        content_layers = [l.description for l in self._content_layer_selection.children
-                          if l.value]
+        content_layers = {layer.description: layer.value for layer in
+                          self._content_layer_selection.children if layer.value != 0.}
+        style_layers = {layer.description: layer.value for layer in
+                        self._style_layer_selection.children if layer.value != 0.}
 
-        style_layers = [l.description for l in self._style_layer_selection.children
-                          if l.value]
-
-        pooling = 'AvgPooling'
-
-        self._nst_model = NSTModel(content_layers, style_layers, pooling)
+        self._nst_model = NSTModel(content_layers, style_layers, pooling='AvgPooling')
 
         generator_parameters = {
             'epochs': self._epoch_selection.value,
@@ -202,22 +224,22 @@ class NSTGui:
 
         with self._text_output:
             self._text_output.clear_output()
-            print(content_layers)
-            print(style_layers)
+            print('Initialized NST model with following layers and weights:')
+            print(f'\tcontent layers: {self._nst_model.content_layers}')
+            print(f'\tstyle layers: {self._nst_model.style_layers}')
 
             print_parameters = {
                 k: v for k, v in generator_parameters.items()
                 if k not in ['content', 'style', 'model', 'callback']
             }
-            print('Starting generation with following parameters:\n')
-            [print(f'{k}:', v) for k, v in print_parameters.items()]
-            print('content layers:', self._nst_model.content_layers)
-            print('style layers:', self._nst_model.style_layers)
-            print('\n')
+            print('\nStarting generation with following parameters:')
+            [print(f'\t{k}:', v) for k, v in print_parameters.items()]
 
             self._result, losses_ = generate_nst(**generator_parameters)
 
+            print('\nPlotting loss function...')
             plt.plot(losses_)
+            plt.title('Loss function')
             plt.show()
 
         self._plot_images()
@@ -226,11 +248,11 @@ class NSTGui:
         """
         Saves selected parameters to 'saved_parameters.csv'
         """
-        content_layers = [l.description for l in self._content_layer_selection.children
-                          if l.value]
+        content_layers = [layer.description for layer in
+                          self._content_layer_selection.children if layer.value]
 
-        style_layers = [l.description for l in self._style_layer_selection.children
-                          if l.value]
+        style_layers = [layer.description for layer in
+                        self._style_layer_selection.children if layer.value]
 
         parameters = [
             f'content: {self._content_image_path.name}',
@@ -272,9 +294,7 @@ class NSTGui:
                 self._content_selection,
                 self._style_selection,
             ], layout=layout_padding),
-            widgets.VBox([
-                self._display_selection_button,
-            ], layout=layout_padding),
+            self._display_selection_button,
         ], layout=layout_boxes)
         image_selection.layout.width = '80%'
 
@@ -285,20 +305,17 @@ class NSTGui:
             self._style_weight_selection
         ], layout=layout_boxes)
 
-
         layer_selection = widgets.HBox([
-            widgets.Label('Content Layers:'),
+            widgets.Label('Content Layer Weights:', layout = widgets.Layout(width='15%')),
             self._content_layer_selection,
-            widgets.Label('Style Layers:'),
+            widgets.Label('Style Layer Weights:', layout = widgets.Layout(width='15%')),
             self._style_layer_selection,
-            #self._pooling_selection,
             widgets.VBox([
                 self._generate_button,
                 self._progress_bar,
                 self._save_results_button
             ])
         ], layout=layout_boxes)
-
 
         inputs = widgets.VBox([
             widgets.HBox([
