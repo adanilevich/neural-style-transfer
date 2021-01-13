@@ -137,29 +137,43 @@ class NSTGui:
         ]
 
         self._content_layer_selection = widgets.VBox([
-            widgets.FloatText(layout=widgets.Layout(width='50%'), description=val)
+            widgets.FloatText(
+                layout=widgets.Layout(width='90%'),
+                description=val,
+                style={'description_width': '70%'}
+            )
             for val in content_options
-        ])
+        ], layout=widgets.Layout(width='25%'))
         self._content_layer_selection.children[-3].value = 1
 
         self._style_layer_selection = widgets.VBox([
-            widgets.FloatText(layout=widgets.Layout(width='50%'), description=v, value=1)
+            widgets.FloatText(
+                layout=widgets.Layout(width='90%'),
+                style={'description_width': '70%'},
+                description=v,
+                value=1
+            )
             for v in style_options
-        ])
+        ], layout=widgets.Layout(width='25%'))
 
         # self._style_layer_selection = widgets.VBox(
         #     [widgets.Checkbox(value=True, description=val) for val in style_options]
         # )
 
         # GENERATE IMAGE AND SAVE RESULTS BUTTONS
-        self._generate_button = widgets.Button(description='Generate!')
+        self._generate_button = widgets.Button(
+            description='Generate!',
+            layout=widgets.Layout(width='90%')
+        )
         self._generate_button.on_click(self._click_generate)
         self._progress_bar = widgets.IntProgress(
             max=self._epoch_selection.value,
-            layout=widgets.Layout(width='97%')
+            layout=widgets.Layout(width='90%')
         )
-
-        self._save_results_button = widgets.Button(description='Save Parameters')
+        self._save_results_button = widgets.Button(
+            description='Save Parameters',
+            layout=widgets.Layout(width='90%')
+        )
         self._save_results_button.on_click(self._click_save_parameters)
 
         # CREATE OUTPUTS AND COMPOSE GUI
@@ -306,15 +320,15 @@ class NSTGui:
         ], layout=layout_boxes)
 
         layer_selection = widgets.HBox([
-            widgets.Label('Content Layer Weights:', layout = widgets.Layout(width='15%')),
+            widgets.Label('Content Layers:', layout = widgets.Layout(width='15%')),
             self._content_layer_selection,
-            widgets.Label('Style Layer Weights:', layout = widgets.Layout(width='15%')),
+            widgets.Label('Style Layers:', layout = widgets.Layout(width='15%')),
             self._style_layer_selection,
             widgets.VBox([
                 self._generate_button,
                 self._progress_bar,
                 self._save_results_button
-            ])
+            ], layout = widgets.Layout(width='20%'))
         ], layout=layout_boxes)
 
         inputs = widgets.VBox([
