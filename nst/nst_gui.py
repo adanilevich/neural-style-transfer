@@ -86,7 +86,7 @@ class NSTGui:
 
         # TRAINING PARAMETERS
         self._epoch_selection = widgets.BoundedIntText(
-            value=1000,
+            value=100,
             min=5,
             max=10000,
             step=10,
@@ -104,7 +104,7 @@ class NSTGui:
         )
 
         self._content_weight_selection = widgets.BoundedFloatText(
-            value=10000,
+            value=1,
             min=0.0,
             max=10000,
             description='Content Weight:',
@@ -112,7 +112,7 @@ class NSTGui:
         )
 
         self._style_weight_selection = widgets.BoundedFloatText(
-            value=0.01,
+            value=1,
             min=0.0,
             max=10000,
             description='Style Weight:',
